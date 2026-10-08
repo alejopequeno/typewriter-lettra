@@ -30,8 +30,14 @@ import { createPaperMaterial } from "./materials/paper-material";
 import { createPost } from "./post";
 import { loadRoller, type Roller } from "./roller";
 import { createBackdrop } from "./backdrop";
+import { createSign } from "./sign";
+import { createSpring } from "./spring";
 import {
+  BAIL_DROP,
+  CHAR_WIDTH,
   CURL_TANGENT_Y,
+  INK_LIFT,
+  LEFT_MARGIN,
   INCH,
   SHEET_DROP,
   SHEET_RISE,
@@ -62,13 +68,11 @@ const FRAMED_HEIGHT = 6.1 * INCH;
  * is lit ten times too bright does the opposite: it lifts the ink to brown. */
 const EXPOSURE = 1;
 
-/** How far the machine leans back, in radians. A page in a typewriter is never
- * a plane square to the viewer, and neither is a photograph of one. */
-const MACHINE_TILT = 0.2;
-/** How far the camera stands left of centre, in world units. Enough that the
- * frame stops reading as a technical elevation, little enough that the
- * right-hand margin does not compress. */
-const CAMERA_OFFSET_X = -0.17;
+/** How far the machine leans back, in radians. Just enough that the top of
+ * the platen reads as a cylinder; the typist sits square to the machine. */
+const MACHINE_TILT = 0.06;
+/** The camera sits on the machine's axis. */
+const CAMERA_OFFSET_X = 0;
 
 /** How far the camera drifts with the pointer, in world units at full
  * deflection. A lean of the head, not a dolly: enough that the platen and the
@@ -79,12 +83,34 @@ const PARALLAX_Y = 0.035;
  * cursor, one that drifts after it feels like weight. */
 const PARALLAX_STIFFNESS = 5;
 
+/** The page flinches when it is struck: pushed into the platen and back.
+ * Velocity away from the viewer, in world units per second. */
+const RECOIL_VELOCITY = -0.11;
+const RECOIL = { stiffness: 2200, damping: 70 };
+
+/** Everything the typist reads is typed by the machine, in its own face.
+ * The signs sit above the bowed page by at least the bow's full depth. */
+const SIGN_LIFT = INK_LIFT + 0.0045;
+const SIGN_INK = "#6f6557";
+
+/** Where the first line will go, until the first key is struck. */
+const HINT_TEXT = "empezá a escribir";
+
+/** The machine's answer to a key it does not have, under the bail. */
+const REFUSAL_TEXT = "No se puede borrar. Es una máquina de escribir.";
+const REFUSAL_SCALE = 0.82;
+const REFUSAL_DROP = BAIL_DROP + 1.05 * INCH;
+
 /** How quickly the platen catches up to a new line. Lower is heavier. */
 const SCROLL_STIFFNESS = 14;
 const MAX_FRAME_SECONDS = 1 / 20;
 
 export interface Stage {
   readonly sync: (state: TypewriterState) => void;
+  /** A character has just been printed: the guide jabs, the page flinches. */
+  readonly strike: () => void;
+  /** The typist reached for a key the machine does not have. */
+  readonly refuse: () => void;
   /** Where the pointer is, each axis -1 … 1 across the viewport. */
   readonly look: (x: number, y: number) => void;
   readonly resize: () => void;
@@ -151,7 +177,13 @@ export const createStage = async (
   sheet.castShadow = true;
   sheet.receiveShadow = true;
   sheet.frustumCulled = false;
-  machine.add(sheet);
+
+  // The sheet and everything printed on it flinch together when struck; the
+  // hardware around them does not.
+  const paper = new Group();
+  paper.add(sheet);
+  machine.add(paper);
+  const recoil = createSpring(RECOIL);
 
   scene.add(createBackdrop());
 
@@ -169,7 +201,51 @@ export const createStage = async (
     font,
     material: createInkMaterial({ map: atlas, scrollY }),
   });
-  machine.add(page.group);
+  paper.add(page.group);
+
+  const snap = prefersReducedMotion();
+
+  const hint = createSign({
+    font,
+    map: atlas,
+    text: HINT_TEXT,
+    fill: SIGN_INK,
+    scale: 1,
+    align: "left",
+    position: [
+      LEFT_MARGIN - SHEET_WIDTH / 2 + CHAR_WIDTH,
+      CURL_TANGENT_Y - PRINT_LINE_DROP,
+      SIGN_LIFT,
+    ],
+    // Quick on the way out: the erosion sweeps left to right, the same way
+    // the typing comes, so the hint has to be gone before the third letter.
+    wipeSeconds: 0.32,
+    holdSeconds: null,
+    reducedMotion: snap,
+  });
+  const refusal = createSign({
+    font,
+    map: atlas,
+    text: REFUSAL_TEXT,
+    fill: SIGN_INK,
+    scale: REFUSAL_SCALE,
+    align: "center",
+    position: [0, CURL_TANGENT_Y - REFUSAL_DROP, SIGN_LIFT],
+    wipeSeconds: 0.55,
+    holdSeconds: 2.2,
+    reducedMotion: snap,
+  });
+  machine.add(hint.mesh, refusal.mesh);
+  // Compile both off the hot path, then let the hint settle onto the page —
+  // unless the typist beat the compiler to the first key, in which case the
+  // hint has nothing left to say.
+  let everStruck = false;
+  void Promise.all([
+    hint.warmup(renderer, camera, scene),
+    refusal.warmup(renderer, camera, scene),
+  ]).then(() => {
+    if (!everStruck) hint.show();
+  });
 
   // A desk lamp, not a sun: close, narrow and with real inverse-square decay,
   // so the page is brightest where the typist is working and falls away into
@@ -242,7 +318,6 @@ export const createStage = async (
   let target = 0;
   let column = 0;
   let previous = performance.now();
-  const snap = prefersReducedMotion();
 
   renderer.setAnimationLoop(() => {
     const now = performance.now();
@@ -255,6 +330,9 @@ export const createStage = async (
 
     scrollY.value = scroll;
     page.cull(scroll);
+    paper.position.z = recoil.update(dt);
+    hint.update(dt);
+    refusal.update(dt);
 
     if (!snap) {
       const k = 1 - Math.exp(-PARALLAX_STIFFNESS * dt);
@@ -277,8 +355,21 @@ export const createStage = async (
     renderer.setAnimationLoop(null);
     post.dispose();
     page.dispose();
+    hint.dispose();
+    refusal.dispose();
     sheet.geometry.dispose();
     renderer.dispose();
+  };
+
+  const strike = (): void => {
+    everStruck = true;
+    hint.hide();
+    roller?.strike();
+    recoil.kick(RECOIL_VELOCITY);
+  };
+
+  const refuse = (): void => {
+    refusal.show();
   };
 
   const look = (x: number, y: number): void => {
@@ -286,5 +377,5 @@ export const createStage = async (
     leanTarget.y = Math.max(-1, Math.min(1, y));
   };
 
-  return { sync, look, resize, dispose };
+  return { sync, strike, refuse, look, resize, dispose };
 };

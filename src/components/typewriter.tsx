@@ -19,8 +19,8 @@ import type { Stage } from "@/gl/stage";
 
 type Status = "loading" | "ready" | "unsupported";
 
+/** Read out to assistive tech; the sighted version is typed on the page. */
 const REFUSAL = "No se puede borrar. Es una máquina de escribir.";
-const REFUSAL_MS = 2600;
 
 /** Keys that mean "the browser is doing something else". */
 const isShortcut = (event: React.KeyboardEvent): boolean =>
@@ -35,10 +35,7 @@ export const Typewriter = () => {
 
   const [status, setStatus] = useState<Status>("loading");
   const [focused, setFocused] = useState(false);
-  const [started, setStarted] = useState(false);
   const [announcement, setAnnouncement] = useState("");
-  const [refusal, setRefusal] = useState<string | null>(null);
-  const refusalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -81,7 +78,6 @@ export const Typewriter = () => {
     () => () => {
       audioRef.current?.dispose();
       audioRef.current = null;
-      if (refusalTimer.current) clearTimeout(refusalTimer.current);
     },
     [],
   );
@@ -131,12 +127,12 @@ export const Typewriter = () => {
 
         state = result.state;
         machine.strike();
+        stageRef.current?.strike();
         if (result.bell) machine.bell();
       }
 
       if (state === stateRef.current) return;
       commit(state);
-      setStarted(true);
     },
     [audio, commit],
   );
@@ -152,7 +148,6 @@ export const Typewriter = () => {
         setAnnouncement(currentLine(stateRef.current));
         commit(carriageReturn(stateRef.current));
         machine.carriageReturn();
-        setStarted(true);
         return;
       }
 
@@ -164,10 +159,8 @@ export const Typewriter = () => {
         const machine = audio();
         void machine.resume();
         machine.refuse();
-        setRefusal(REFUSAL);
+        stageRef.current?.refuse();
         setAnnouncement(REFUSAL);
-        if (refusalTimer.current) clearTimeout(refusalTimer.current);
-        refusalTimer.current = setTimeout(() => setRefusal(null), REFUSAL_MS);
         return;
       }
 
@@ -241,18 +234,6 @@ export const Typewriter = () => {
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
-
-      {refusal !== null && (
-        <p className="typewriter__refusal" aria-hidden="true">
-          {refusal}
-        </p>
-      )}
-
-      {status === "ready" && !started && refusal === null && (
-        <p className="typewriter__hint" aria-hidden="true">
-          empezá a escribir
-        </p>
-      )}
 
       {status === "loading" && (
         <p className="typewriter__notice">cargando la máquina…</p>

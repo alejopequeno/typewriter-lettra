@@ -138,7 +138,9 @@ export const createInkMaterial = ({
     positionLocal.y.add(scrollY).add(offsetY).add(tilt),
     positionLocal.z,
   );
-  const travelling = vec2(onPaper.x, onPaper.y);
+  // Document space is the paper's own frame: the fibre under a letter has to
+  // be the fibre that travels with it, not the fibre at that spot on screen.
+  const travelling = vec2(onPaper.x, positionLocal.y.add(offsetY).add(tilt));
 
   const strike = force.mul(1 - WEAKEST_STRIKE).add(WEAKEST_STRIKE);
   const grain = paperFibre(travelling).mul(FIBRE_BITE).add(1);

@@ -158,6 +158,21 @@ completa, multijugador.
   carro hacia atrás se siente como un editor roto. El carro solo avanza. Con
   eso el núcleo pierde la pila de celdas y el apilado de capas en la
   geometría: una línea es un string.
+- **Todo texto que el usuario lee es lettra.** El hint y el aviso de "no se
+  puede borrar" los tipea la máquina en su propia hoja (`sign.ts`), entrando
+  y saliendo con el `wipe()` de erosión. El DOM conserva solo lo que tiene
+  que existir antes de que exista la escena: "cargando" y "no soportado". El
+  lector de pantalla recibe los mismos textos por `aria-live`.
+- **La horquilla golpea y la hoja acusa el golpe.** En cada tecla el type
+  guide salta hacia el papel con un resorte subamortiguado (`spring.ts`) y
+  la hoja entera, con su tinta, retrocede un pelo contra la platina. El
+  hardware alrededor no se mueve.
+- **La hoja se mueve en la misma dirección que la tinta.** Un bug: el grano
+  se muestreaba en `y + scroll` y viajaba hacia abajo mientras las líneas
+  subían. El marco del papel es `y − scroll`, y la tinta muestrea su propio
+  espacio de documento, que ya es el marco del papel.
+- **Cámara centrada.** La inclinación y el descentrado eran mi idea de
+  "foto"; Alejo quiere sentarse de frente a la máquina.
 - **Los materiales del hardware se reemplazan al cargar el GLB.** Blender
   exporta constantes planas; `hardware-materials.ts` las cambia por nombre
   por superficies con desgaste procedural y rayones de Poly Haven

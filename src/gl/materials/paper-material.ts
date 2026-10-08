@@ -23,9 +23,9 @@ export const createPaperMaterial = ({
   const material = new MeshStandardNodeMaterial();
 
   // The sheet is a fixed plane on screen; what moves is the paper running
-  // through it, so everything printed on the paper is sampled in the
-  // travelling frame.
-  const travelling = vec2(positionLocal.x, positionLocal.y.add(scrollY));
+  // up through it. A mark at paper coordinate P shows at plane-y = P + scroll,
+  // so the paper frame is plane-y − scroll — the same direction the ink goes.
+  const travelling = vec2(positionLocal.x, positionLocal.y.sub(scrollY));
   const tone = paperTone(travelling, positionLocal.y);
 
   material.colorNode = tone.colour;

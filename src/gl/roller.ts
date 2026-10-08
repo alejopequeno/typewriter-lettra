@@ -13,7 +13,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Group, Material, Mesh } from "three/webgpu";
 
 import { createHardwareMaterials } from "./materials/hardware-materials";
-import { columnX } from "./sheet-metrics";
+import { INCH, columnX } from "./sheet-metrics";
+import { createSpring } from "./spring";
 
 const MODEL = "/models/roller.glb";
 
@@ -26,10 +27,19 @@ const TYPE_GUIDE = "Type_Guide";
  * lands the instant you press the key, and so should the mark saying where. */
 const COLUMN_STIFFNESS = 38;
 
+/** The jab. Underdamped on purpose: a strike is a blow that rings, not a
+ * slide. Velocity towards the page, in world units per second. */
+const JAB_VELOCITY = -0.9;
+const JAB = { stiffness: 1400, damping: 46 };
+/** The guide stands off the page; it must never pass through it. */
+const JAB_LIMIT = -0.1 * INCH;
+
 export interface Roller {
   readonly group: Group;
   /** The column the next character will land in. */
   readonly setColumn: (column: number) => void;
+  /** A typebar has just hit the page under the guide. */
+  readonly strike: () => void;
   readonly update: (dt: number) => void;
 }
 
@@ -67,16 +77,21 @@ export const loadRoller = async (): Promise<Roller> => {
 
   let target = columnX(0);
   let at = target;
+  const jab = createSpring(JAB);
 
   return {
     group,
     setColumn: (column) => {
       target = columnX(column);
     },
+    strike: () => {
+      jab.kick(JAB_VELOCITY);
+    },
     update: (dt) => {
       if (!guide) return;
       at = chase(at, target, COLUMN_STIFFNESS, dt);
       guide.position.x = at;
+      guide.position.z = Math.max(JAB_LIMIT, jab.update(dt));
     },
   };
 };
