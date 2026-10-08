@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "bake:font": "lettra bake tools/fonts/CourierPrime-Regular.ttf --charset ./tools/charset.txt --size 64 --pxrange 8 --out public/fonts/courier",
+    "test": "vitest run"
   },
   "dependencies": {
     "lettra": "^0.3.0",

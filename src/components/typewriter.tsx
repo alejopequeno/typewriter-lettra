@@ -99,18 +99,39 @@ export const Typewriter = () => {
     keys.setSelectionRange(next.column, next.column);
   }, []);
 
+  /** Prints one character, whichever road it arrived by. */
+  const press = useCallback(
+    (text: string) => {
+      const machine = audio();
+      void machine.resume();
+
+      let state = stateRef.current;
+      for (const char of text) {
+        const result = strike(state, char);
+        if (result.outcome === "jammed") break;
+
+        state = result.state;
+        machine.strike();
+        if (result.bell) machine.bell();
+      }
+
+      if (state === stateRef.current) return;
+      commit(state);
+      setStarted(true);
+    },
+    [audio, commit],
+  );
+
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (isShortcut(event)) return;
 
-      const state = stateRef.current;
-      const machine = audio();
-      void machine.resume();
-
       if (event.key === "Enter") {
         event.preventDefault();
-        setAnnouncement(lineToString(currentLine(state)));
-        commit(carriageReturn(state));
+        const machine = audio();
+        void machine.resume();
+        setAnnouncement(lineToString(currentLine(stateRef.current)));
+        commit(carriageReturn(stateRef.current));
         machine.carriageReturn();
         setStarted(true);
         return;
@@ -118,23 +139,43 @@ export const Typewriter = () => {
 
       if (event.key === "Backspace") {
         event.preventDefault();
-        commit(retreat(state));
+        commit(retreat(stateRef.current));
         return;
       }
 
+      // Anything the key event does not carry a character for — a dead key
+      // waiting for its vowel, an IME mid-word — is left to `onBeforeInput`,
+      // which is where the finished character actually turns up.
       if (!isPrintable(event.key)) return;
 
       event.preventDefault();
-      const result = strike(state, event.key);
-      if (result.outcome === "jammed") return;
-
-      commit(result.state);
-      machine.strike();
-      if (result.bell) machine.bell();
-      setStarted(true);
+      press(event.key);
     },
-    [audio, commit],
+    [audio, commit, press],
   );
+
+  /**
+   * The other road in. Spanish accents are dead-key compositions (´ then a),
+   * so "á" never appears on a `keydown` at all; it arrives here, and so does
+   * anything typed on a phone keyboard or through an IME.
+   *
+   * Bound natively rather than through React's `onBeforeInput`, which does not
+   * deliver composition results.
+   */
+  useEffect(() => {
+    const keys = keysRef.current;
+    if (!keys) return;
+
+    const onBeforeInput = (event: InputEvent): void => {
+      event.preventDefault();
+      // Only typing prints. Pasting into a typewriter is not a thing.
+      if (event.inputType !== "insertText" || !event.data) return;
+      press(event.data);
+    };
+
+    keys.addEventListener("beforeinput", onBeforeInput);
+    return () => keys.removeEventListener("beforeinput", onBeforeInput);
+  }, [press]);
 
   return (
     <div className="typewriter" data-focused={focused}>

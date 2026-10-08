@@ -47,10 +47,10 @@ const FIELD_OF_VIEW = 30;
 /** The point on the page the camera holds in the middle of the frame. Chosen
  * so the print line — where the carriage always is — sits in the upper third,
  * with the page falling away below it. */
-const FRAMING_CENTRE_Y = CURL_TANGENT_Y - 2.75 * INCH;
+const FRAMING_CENTRE_Y = CURL_TANGENT_Y - 2.6 * INCH;
 /** Page width kept in frame, so the margins always have room to breathe. */
 const FRAMED_WIDTH = SHEET_WIDTH * 1.14;
-const FRAMED_HEIGHT = 6.5 * INCH;
+const FRAMED_HEIGHT = 6.1 * INCH;
 
 /** The lamp is set so the page lands just under white on its own, which keeps
  * the ink at the near-zero albedo it actually has. Grading down a scene that

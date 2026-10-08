@@ -25,7 +25,7 @@ const PLATEN_LENGTH = SHEET_WIDTH * 1.18;
 const KNOB_RADIUS = ROLLER_RADIUS * 1.3;
 const KNOB_THICKNESS = 0.42 * INCH;
 const BAIL_RADIUS = 0.05 * INCH;
-const BAIL_DROP = 2.35 * INCH;
+const BAIL_DROP = 4.15 * INCH;
 /** The bail stands off the page far enough to throw a readable shadow. */
 const BAIL_STANDOFF = 0.26 * INCH;
 
