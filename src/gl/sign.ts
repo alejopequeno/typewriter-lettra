@@ -97,8 +97,10 @@ export const createSign = ({
   return {
     mesh: handle.mesh,
     show: () => enter("arriving"),
+    // Idempotent: a key every 150 ms must not restart a 320 ms wipe, or the
+    // line snaps back to full and dissolves again on every keystroke.
     hide: () => {
-      if (phase !== "away") enter("leaving");
+      if (phase === "arriving" || phase === "holding") enter("leaving");
     },
     update: (dt) => {
       if (phase === "away") return;

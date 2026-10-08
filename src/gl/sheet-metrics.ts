@@ -56,6 +56,12 @@ export const SHEET_DROP = 9 * INCH;
  * back, so from above the page never just stops on the rubber. */
 export const SHEET_RISE = ROLLER_RADIUS * Math.PI * 0.92;
 
+/** Where the alignment scale sits below the print line, and how far the type
+ * guide stands off the page. Both repeated in `tools/blender/roller.py`; the
+ * guide swings about the slider it rides on the scale. */
+export const SCALE_DROP = PRINT_LINE_DROP + 0.46 * INCH;
+export const GUIDE_STANDOFF = 0.145 * INCH;
+
 /** Where the bail bar crosses the page. `tools/blender/roller.py` repeats
  * this; the refusal is typed just below it. */
 export const BAIL_DROP = 5.4 * INCH;

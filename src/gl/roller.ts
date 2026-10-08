@@ -13,7 +13,12 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Group, Material, Mesh } from "three/webgpu";
 
 import { createHardwareMaterials } from "./materials/hardware-materials";
-import { INCH, columnX } from "./sheet-metrics";
+import {
+  CURL_TANGENT_Y,
+  GUIDE_STANDOFF,
+  SCALE_DROP,
+  columnX,
+} from "./sheet-metrics";
 import { createSpring } from "./spring";
 
 const MODEL = "/models/roller.glb";
@@ -27,12 +32,14 @@ const TYPE_GUIDE = "Type_Guide";
  * lands the instant you press the key, and so should the mark saying where. */
 const COLUMN_STIFFNESS = 38;
 
-/** The jab. Underdamped on purpose: a strike is a blow that rings, not a
- * slide. Velocity towards the page, in world units per second. */
-const JAB_VELOCITY = -0.9;
+/** The jab. The guide swings about the slider it rides on the scale, so
+ * only the fork at the top dips towards the page, the way a typebar comes
+ * up and in. Underdamped on purpose: a strike is a blow that rings, not a
+ * slide. Angular velocity in radians per second; negative tips the top in. */
+const JAB_VELOCITY = -6;
 const JAB = { stiffness: 1400, damping: 46 };
-/** The guide stands off the page; it must never pass through it. */
-const JAB_LIMIT = -0.1 * INCH;
+/** The fork must never go through the page. */
+const JAB_LIMIT = -0.2;
 
 export interface Roller {
   readonly group: Group;
@@ -75,6 +82,18 @@ export const loadRoller = async (): Promise<Roller> => {
     console.warn(`${MODEL} has no "${TYPE_GUIDE}"; the printing point will not move`);
   }
 
+  // The GLB bakes the guide's vertices at their resting place. To swing it
+  // about the slider, the mesh is parented to a pivot sitting at the slider
+  // and shifted back by the same amount, so at rest nothing has moved.
+  const pivotY = CURL_TANGENT_Y - SCALE_DROP;
+  const pivot = new Group();
+  pivot.position.set(0, pivotY, GUIDE_STANDOFF);
+  if (guide) {
+    guide.position.set(0, -pivotY, -GUIDE_STANDOFF);
+    pivot.add(guide);
+    group.add(pivot);
+  }
+
   let target = columnX(0);
   let at = target;
   const jab = createSpring(JAB);
@@ -90,8 +109,8 @@ export const loadRoller = async (): Promise<Roller> => {
     update: (dt) => {
       if (!guide) return;
       at = chase(at, target, COLUMN_STIFFNESS, dt);
-      guide.position.x = at;
-      guide.position.z = Math.max(JAB_LIMIT, jab.update(dt));
+      pivot.position.x = at;
+      pivot.rotation.x = Math.max(JAB_LIMIT, jab.update(dt));
     },
   };
 };
