@@ -17,6 +17,8 @@ import {
 } from "@/core/typewriter-machine";
 import type { Stage } from "@/gl/stage";
 
+import { MachineLoader } from "./machine-loader";
+
 type Status = "loading" | "ready" | "unsupported";
 
 /** Read out to assistive tech; the sighted version is typed on the page. */
@@ -34,6 +36,7 @@ export const Typewriter = () => {
   const stateRef = useRef<TypewriterState>(createState());
 
   const [status, setStatus] = useState<Status>("loading");
+  const [progress, setProgress] = useState(0);
   const [focused, setFocused] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 
@@ -43,11 +46,19 @@ export const Typewriter = () => {
 
     let stage: Stage | null = null;
     let cancelled = false;
+    const abort = new AbortController();
 
     // three/webgpu never reaches the server bundle: it is pulled in here, on
     // the client, at the moment the canvas exists.
     import("@/gl/stage")
-      .then(({ createStage }) => createStage(canvas))
+      .then(({ createStage }) =>
+        createStage(canvas, {
+          signal: abort.signal,
+          onProgress: (fraction) => {
+            if (!cancelled) setProgress(fraction);
+          },
+        }),
+      )
       .then((created) => {
         if (cancelled) {
           created.dispose();
@@ -59,6 +70,7 @@ export const Typewriter = () => {
         setStatus("ready");
       })
       .catch((error: unknown) => {
+        if (abort.signal.aborted) return;
         console.error("the machine could not be set up", error);
         if (!cancelled) setStatus("unsupported");
       });
@@ -68,6 +80,7 @@ export const Typewriter = () => {
 
     return () => {
       cancelled = true;
+      abort.abort();
       removeEventListener("resize", onResize);
       stage?.dispose();
       stageRef.current = null;
@@ -215,6 +228,7 @@ export const Typewriter = () => {
     <div
       className="typewriter"
       data-focused={focused}
+      data-status={status}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
@@ -248,6 +262,10 @@ export const Typewriter = () => {
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
+
+      {status !== "unsupported" && (
+        <MachineLoader progress={progress} done={status === "ready"} />
+      )}
 
       {status === "unsupported" && (
         <p className="typewriter__notice" role="alert">

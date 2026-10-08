@@ -28,10 +28,11 @@ import { createDocument, type TypedDocument } from "./document";
 import { createInkMaterial } from "./materials/ink-material";
 import { createPaperMaterial } from "./materials/paper-material";
 import { createPost } from "./post";
-import { loadRoller, type Roller } from "./roller";
+import { loadRoller } from "./roller";
 import { createBackdrop } from "./backdrop";
 import { createSign } from "./sign";
 import { createSpring } from "./spring";
+import { trackProgress, type ProgressListener } from "./load-progress";
 import {
   CURL_TANGENT_Y,
   INK_LIFT,
@@ -130,6 +131,22 @@ const framingDistance = (aspect: number): number => {
   return Math.max(forHeight, forWidth);
 };
 
+/** Font JSON, font atlas, platen, environment, scene shaders, sign shaders,
+ * and the first frames, where the post pipeline builds its own passes. */
+const LOADING_STEPS = 7;
+
+/** How long the page fades up once everything is in, in milliseconds. The
+ * hint starts typing itself when the fade is done, not under it. Must match
+ * the canvas transition in globals.css. */
+export const REVEAL_MS = 600;
+
+/** Frames rendered behind the loader before it lifts, so the post pipeline
+ * builds its own passes while nobody is looking. */
+const HIDDEN_FRAMES = 2;
+
+const nextFrame = (): Promise<void> =>
+  new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
 const loadEnvironment = async (scene: Scene): Promise<void> => {
   const texture = await new RGBELoader().loadAsync(ENVIRONMENT);
   texture.mapping = EquirectangularReflectionMapping;
@@ -137,9 +154,21 @@ const loadEnvironment = async (scene: Scene): Promise<void> => {
   scene.environmentIntensity = 0.35;
 };
 
+export interface StageOptions {
+  /** Share of loading finished, 0 … 1, reported as each step lands. */
+  readonly onProgress?: ProgressListener;
+  /** Aborted when the caller no longer wants the stage. Checked before the
+   * stage first draws, so an abandoned stage never touches the canvas while
+   * its replacement is drawing there. */
+  readonly signal?: AbortSignal;
+}
+
 export const createStage = async (
   canvas: HTMLCanvasElement,
+  { onProgress = () => {}, signal }: StageOptions = {},
 ): Promise<Stage> => {
+  const track = trackProgress(LOADING_STEPS, onProgress);
+
   const renderer = new WebGPURenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.toneMapping = NeutralToneMapping;
@@ -159,9 +188,23 @@ export const createStage = async (
 
   const scrollY = uniform(0);
 
-  const [font, atlas] = await Promise.all([
-    loadFont(FONT_JSON),
-    loadFontTexture(FONT_ATLAS),
+  // Everything the first frame needs arrives before it: nothing pops in.
+  // The platen and the environment are scenery, so a failure there leaves a
+  // plainer machine that still types rather than no machine at all.
+  const [font, atlas, roller] = await Promise.all([
+    track(loadFont(FONT_JSON)),
+    track(loadFontTexture(FONT_ATLAS)),
+    track(
+      loadRoller().catch((error: unknown) => {
+        console.error("the platen is missing", error);
+        return null;
+      }),
+    ),
+    track(
+      loadEnvironment(scene).catch((error: unknown) => {
+        console.error("the room light is missing", error);
+      }),
+    ),
   ]);
 
   const sheet = new Mesh(
@@ -188,15 +231,7 @@ export const createStage = async (
 
   scene.add(createBackdrop());
 
-  // The platen is scenery: if it fails to load the machine still types, so it
-  // arrives on its own schedule rather than holding up the first frame.
-  let roller: Roller | null = null;
-  void loadRoller()
-    .then((loaded) => {
-      roller = loaded;
-      machine.add(loaded.group);
-    })
-    .catch((error: unknown) => console.error("the platen is missing", error));
+  if (roller) machine.add(roller.group);
 
   const page: TypedDocument = createDocument({
     font,
@@ -235,16 +270,7 @@ export const createStage = async (
     reducedMotion: snap,
   });
   machine.add(hint.mesh, refusal.mesh);
-  // Compile both off the hot path, then let the hint settle onto the page —
-  // unless the typist beat the compiler to the first key, in which case the
-  // hint has nothing left to say.
   let everStruck = false;
-  void Promise.all([
-    hint.warmup(renderer, camera, scene),
-    refusal.warmup(renderer, camera, scene),
-  ]).then(() => {
-    if (!everStruck) hint.show();
-  });
 
   // A desk lamp, not a sun: close, narrow and with real inverse-square decay,
   // so the page is brightest where the typist is working and falls away into
@@ -311,14 +337,13 @@ export const createStage = async (
   const post = createPost({ renderer, scene, camera });
 
   resize();
-  void loadEnvironment(scene);
 
   let scroll = 0;
   let target = 0;
   let column = 0;
   let previous = performance.now();
 
-  renderer.setAnimationLoop(() => {
+  const frame = (): void => {
     const now = performance.now();
     const dt = Math.min((now - previous) / 1000, MAX_FRAME_SECONDS);
     previous = now;
@@ -343,7 +368,7 @@ export const createStage = async (
     roller?.setTravel(scroll);
     roller?.update(dt);
     post.render();
-  });
+  };
 
   const sync = (state: TypewriterState): void => {
     page.sync(state);
@@ -351,7 +376,10 @@ export const createStage = async (
     column = carriageColumn(state);
   };
 
+  let disposed = false;
+
   const dispose = (): void => {
+    disposed = true;
     renderer.setAnimationLoop(null);
     post.dispose();
     page.dispose();
@@ -378,6 +406,41 @@ export const createStage = async (
     leanTarget.x = -Math.max(-1, Math.min(1, x));
     leanTarget.y = -Math.max(-1, Math.min(1, y));
   };
+
+  // Every material compiled while the loader is still up, so the first frame
+  // the typist sees is the whole machine.
+  await Promise.all([
+    track(
+      Promise.all([
+        hint.warmup(renderer, camera, scene),
+        refusal.warmup(renderer, camera, scene),
+      ]),
+    ),
+    track(renderer.compileAsync(scene, camera)),
+  ]);
+
+  const bailIfAbandoned = (): void => {
+    if (!signal?.aborted) return;
+    dispose();
+    throw signal.reason;
+  };
+
+  const renderHiddenFrames = async (): Promise<void> => {
+    for (let hidden = 0; hidden < HIDDEN_FRAMES; hidden += 1) {
+      bailIfAbandoned();
+      frame();
+      await nextFrame();
+    }
+    bailIfAbandoned();
+  };
+  await track(renderHiddenFrames());
+  renderer.setAnimationLoop(frame);
+
+  // The hint types itself once the page has faded up — unless the typist
+  // beat it to the first key, in which case it has nothing left to say.
+  setTimeout(() => {
+    if (!disposed && !everStruck) hint.show();
+  }, snap ? 0 : REVEAL_MS);
 
   return { sync, strike, refuse, look, resize, dispose };
 };
