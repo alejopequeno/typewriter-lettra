@@ -33,7 +33,6 @@ import { createBackdrop } from "./backdrop";
 import { createSign } from "./sign";
 import { createSpring } from "./spring";
 import {
-  CHAR_WIDTH,
   CURL_TANGENT_Y,
   INK_LIFT,
   LEFT_MARGIN,
@@ -214,11 +213,9 @@ export const createStage = async (
     fill: SIGN_INK,
     scale: 1,
     align: "left",
-    position: [
-      LEFT_MARGIN - SHEET_WIDTH / 2 + CHAR_WIDTH,
-      CURL_TANGENT_Y - PRINT_LINE_DROP,
-      SIGN_LIFT,
-    ],
+    // Exactly where the first line will start: column 0, inside the fork,
+    // the same cell the first letter lands in.
+    position: [LEFT_MARGIN - SHEET_WIDTH / 2, CURL_TANGENT_Y - PRINT_LINE_DROP, SIGN_LIFT],
     // Quick on the way out: the erosion sweeps left to right, the same way
     // the typing comes, so the hint has to be gone before the third letter.
     wipeSeconds: 0.32,
