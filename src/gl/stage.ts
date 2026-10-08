@@ -25,7 +25,7 @@ import type { TypewriterState } from "@/core/typewriter-machine";
 import { createDocument, type TypedDocument } from "./document";
 import { createInkMaterial } from "./materials/ink-material";
 import { createPaperMaterial } from "./materials/paper-material";
-import { createRoller } from "./roller";
+import { loadRoller } from "./roller";
 import {
   CURL_TANGENT_Y,
   INCH,
@@ -49,7 +49,7 @@ const FIELD_OF_VIEW = 30;
  * with the page falling away below it. */
 const FRAMING_CENTRE_Y = CURL_TANGENT_Y - 2.6 * INCH;
 /** Page width kept in frame, so the margins always have room to breathe. */
-const FRAMED_WIDTH = SHEET_WIDTH * 1.14;
+const FRAMED_WIDTH = SHEET_WIDTH * 1.46;
 const FRAMED_HEIGHT = 6.1 * INCH;
 
 /** The lamp is set so the page lands just under white on its own, which keeps
@@ -122,7 +122,11 @@ export const createStage = async (
   sheet.frustumCulled = false;
   scene.add(sheet);
 
-  scene.add(createRoller());
+  // The platen is scenery: if it fails to load the machine still types, so it
+  // arrives on its own schedule rather than holding up the first frame.
+  void loadRoller()
+    .then((roller) => scene.add(roller))
+    .catch((error: unknown) => console.error("the platen is missing", error));
 
   const page: TypedDocument = createDocument({
     font,
@@ -152,7 +156,7 @@ export const createStage = async (
 
   // Just enough from the other side to keep the right-hand margin and the
   // platen from going flat black.
-  const fill = new SpotLight("#aebbd4", 3.4, 0, 0.95, 1, 1.5);
+  const fill = new SpotLight("#aebbd4", 2.3, 0, 0.95, 1, 1.5);
   fill.position.set(1.3, 0.75, 1.1);
   fill.target = aim;
 

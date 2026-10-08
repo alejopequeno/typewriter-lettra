@@ -23,11 +23,14 @@ export const LEFT_MARGIN = 1.15 * INCH;
  */
 export const CURL_TANGENT_Y = 0;
 
-/** Radius the sheet wraps around. */
+/**
+ * Radius the sheet wraps around.
+ *
+ * `tools/blender/roller.py` repeats this number and models the rubber just
+ * inside it, so the platen never coincides with the paper's own path. Change
+ * it here and rerun that script.
+ */
 export const ROLLER_RADIUS = 0.85 * INCH;
-
-/** The rubber sits just inside the paper's path, so the two never coincide. */
-export const PLATEN_RADIUS = ROLLER_RADIUS - 0.03 * INCH;
 
 /** Where the first line of a fresh page lands, as on a sheet just rolled in. */
 export const FIRST_LINE_DROP = 1.15 * INCH;

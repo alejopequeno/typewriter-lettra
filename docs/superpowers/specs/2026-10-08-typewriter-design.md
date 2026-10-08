@@ -26,6 +26,7 @@ No es un editor. Es un objeto. El valor está en cómo se siente escribir.
 | Audio | Sintetizado en WebAudio | Variación infinita, cero assets. Con samples el loop se escucha a la tercera línea. |
 | Luz | HDRI `brown_photostudio_02` de Poly Haven | Luz de estudio cálida, contraste medio. El rodillo metálico agarra un specular lindo. |
 | Papel | Ruido de fibra procedural en TSL | Poly Haven no tiene ninguna textura de papel (866 texturas, cero en la categoría). Y a pantalla completa una foto repetiría features macro visibles. |
+| Rodillo | Modelado en Blender, exportado a GLB | `tools/blender/roller.py` lo arma a la escala de la escena, así entra a escala 1 sin conversión que mantener sincronizada. |
 
 ## Arquitectura
 
@@ -70,8 +71,9 @@ de carro son exactamente el tipo de lógica que se rompe sin avisar.
   `setText()` por tecla, las terminadas quedan congeladas, y las que salen
   del cuadro se reciclan. Costo constante por pulsación sin importar cuánto
   llevás escrito.
-- **`objects/roller.ts`** — rodillo + perillas. Procedural por ahora;
-  se reemplaza por un GLB de Blender cuando el MCP esté conectado.
+- **`roller.ts`** — carga `public/models/roller.glb`: platen, bridas,
+  perillas moleteadas, barra sujetapapeles con sus ruedas y brazos. Es
+  decorado: si falla la carga, la máquina sigue escribiendo.
 - **`renderer.ts`**, **`scene.ts`** — WebGPURenderer (cae a WebGL2 solo),
   cámara, environment map.
 
@@ -138,3 +140,16 @@ La pieza es puro teclado por naturaleza, pero eso no la hace accesible sola.
 
 Exportar, guardar, compartir, varias hojas, teclas animadas, máquina
 completa, multijugador.
+
+## Decisiones tomadas después
+
+- **El encuadre se abrió a 1.46 anchos de hoja.** Con el modelo de Blender
+  puesto casi no se veía: las perillas quedaban fuera de cuadro y el rodillo
+  era un par de manchas oscuras en las esquinas. Abriendo el encuadre la hoja
+  pasa a ocupar el 69% del ancho y a cambio se lee la máquina entera.
+- **La línea de impresión bajó a 3.4 pulgadas del rodillo.** Una máquina real
+  imprime pegada al platen, lo que dejaría ocho renglones a la vista antes de
+  que se vayan. Así quedan veintipico. En hoja nueva la página no se mueve
+  hasta que el carro llega ahí.
+- **Las tildes entran por `beforeinput`, no por `keydown`.** Son teclas
+  muertas: el carácter compuesto no existe en el evento de tecla.
