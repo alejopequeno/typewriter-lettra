@@ -1,0 +1,51 @@
+/**
+ * The physical dimensions of the page, in world units.
+ *
+ * One world unit is the width of a US Letter sheet (8.5"), so every other
+ * measurement can be written as the real-world measurement it actually is.
+ * Typing is pica: ten characters to the inch, six lines to the inch — the
+ * spacing of the machine in the reference photo.
+ */
+
+export const SHEET_WIDTH = 1;
+export const INCH = SHEET_WIDTH / 8.5;
+
+export const CHAR_WIDTH = INCH / 10;
+export const LINE_STEP = INCH / 6;
+
+/** Left margin, measured from the sheet's left edge. */
+export const LEFT_MARGIN = 1.15 * INCH;
+
+/**
+ * Paper space has y pointing up with the origin at the curl tangent — the
+ * line where the sheet leaves the roller and becomes flat. Everything the
+ * typist can read lives below it.
+ */
+export const CURL_TANGENT_Y = 0;
+
+/** Radius the sheet wraps around. */
+export const ROLLER_RADIUS = 0.85 * INCH;
+
+/** The rubber sits just inside the paper's path, so the two never coincide. */
+export const PLATEN_RADIUS = ROLLER_RADIUS - 0.03 * INCH;
+
+/** How far below the roller the carriage prints. */
+export const PRINT_LINE_DROP = 1.1 * INCH;
+
+/** How far the sheet extends past the print line before the camera loses it. */
+export const SHEET_DROP = 9 * INCH;
+
+/** How far the sheet wraps up and over the roller. */
+export const SHEET_RISE = ROLLER_RADIUS * Math.PI * 0.55;
+
+/** Ink sits a hair proud of the paper so it never z-fights with it. */
+export const INK_LIFT = 0.0004;
+
+/** Document-space baseline of a line, before scrolling. Line 0 sits at the
+ * print line; each line after it is one line-step further down. */
+export const lineBaselineY = (lineNumber: number): number =>
+  CURL_TANGENT_Y - PRINT_LINE_DROP - lineNumber * LINE_STEP;
+
+/** Scroll offset that brings `lineNumber` up to the print line. */
+export const scrollForLine = (lineNumber: number): number =>
+  lineNumber * LINE_STEP;
