@@ -65,7 +65,7 @@ PRINT_LINE_DROP = 3.4 * INCH
 SCALE_DROP = PRINT_LINE_DROP + 0.46 * INCH
 SCALE_STANDOFF = 0.1 * INCH
 SCALE_THICKNESS = 0.028 * INCH
-SCALE_HEIGHT = 0.1 * INCH
+SCALE_HEIGHT = 0.17 * INCH
 TICK_WIDTH = 0.012 * INCH
 TICK_SHORT = 0.055 * INCH
 TICK_MEDIUM = 0.09 * INCH
@@ -77,6 +77,26 @@ GUIDE_HEIGHT = 0.34 * INCH
 GUIDE_THICKNESS = 0.03 * INCH
 GUIDE_STANDOFF = SCALE_STANDOFF + 0.045 * INCH
 GUIDE_NOTCH = 1.25 * CHAR_WIDTH
+
+# What a scale carries besides ticks: a number every ten columns, and the two
+# margin stops you slide along it.
+NUMBER_HEIGHT = 0.075 * INCH
+NUMBER_RELIEF = 0.006 * INCH
+STOP_WIDTH = 1.6 * CHAR_WIDTH
+STOP_HEIGHT = SCALE_HEIGHT * 1.7
+STOP_THICKNESS = SCALE_THICKNESS * 2.2
+
+# Hardware is held together by something. Screw heads on every mount and
+# flange, a hub cap on each knob, and the line-space ratchet behind the right
+# knob — the toothed wheel that clicks the paper up a line.
+SCREW_RADIUS = 0.028 * INCH
+SCREW_RELIEF = 0.012 * INCH
+HUB_RADIUS = 0.3 * INCH
+HUB_WIDTH = 0.08 * INCH
+RATCHET_RADIUS = ROLLER_RADIUS * 1.14
+RATCHET_WIDTH = FLANGE_WIDTH * 0.75
+RATCHET_TEETH = 36
+RATCHET_DEPTH = 0.14
 
 # The mounts that hold the scale to the frames, one at each end. Without them
 # the rule is a bar hovering in front of the page.
@@ -185,6 +205,51 @@ def fluted_cylinder(bm, radius, length, centre, flutes, depth):
         vert.co.z = centre.z + offset.z * ripple
 
 
+def screw(bm, centre, facing):
+    """A slotted round head standing proud of a face that looks along x."""
+    head = place(0, 0, 0)
+    head.x = centre.x + facing * SCREW_RELIEF / 2
+    head.y, head.z = centre.y, centre.z
+    lying_cylinder(bm, SCREW_RADIUS, SCREW_RELIEF, 20, head, bevel=SCREW_RADIUS * 0.3)
+    # The slot, cut as a thin dark box across the head.
+    slot = Vector((head.x + facing * SCREW_RELIEF / 2, head.y, head.z))
+    bmesh.ops.create_cube(
+        bm,
+        size=1.0,
+        matrix=Matrix.Translation(slot)
+        @ Matrix.Diagonal((SCREW_RELIEF * 0.5, SCREW_RADIUS * 1.6, SCREW_RADIUS * 0.28, 1.0)),
+    )
+
+
+def number_mesh(collection, label, centre, mat):
+    """Raised digits on the scale, built from a text object and frozen to a
+    mesh so the export carries plain geometry."""
+    curve = bpy.data.curves.new(f"Scale {label}", type="FONT")
+    curve.body = label
+    curve.size = NUMBER_HEIGHT
+    curve.extrude = NUMBER_RELIEF / 2
+    curve.align_x = "CENTER"
+    curve.align_y = "CENTER"
+
+    text = bpy.data.objects.new(f"Scale {label} text", curve)
+    text.location = centre
+    # Text is born flat on the floor; stand it up to face the typist (-y).
+    text.rotation_euler = (math.pi / 2, 0, 0)
+    collection.objects.link(text)
+
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    mesh = bpy.data.meshes.new_from_object(text.evaluated_get(depsgraph))
+    mesh.transform(text.matrix_world)
+
+    obj = bpy.data.objects.new(f"Scale {label}", mesh)
+    obj.data.materials.append(mat)
+    collection.objects.link(obj)
+
+    bpy.data.objects.remove(text, do_unlink=True)
+    bpy.data.curves.remove(curve)
+    return obj
+
+
 def column_x(column):
     """Centre of a typed column, in web-scene x."""
     return LEFT_MARGIN - SHEET_WIDTH / 2 + (column + 0.5) * CHAR_WIDTH
@@ -219,6 +284,8 @@ def build():
     rubber = material("Platen Rubber", (0.055, 0.045, 0.036), 0.5, 0.05)
     steel = material("Platen Steel", (0.15, 0.135, 0.112), 0.44, 0.82)
     dark_steel = material("Bail Steel", (0.075, 0.065, 0.055), 0.34, 0.9)
+    enamel = material("Frame Enamel", (0.02, 0.018, 0.015), 0.28, 0.1)
+    brass = material("Brass", (0.6, 0.42, 0.18), 0.38, 0.95)
 
     add_mesh(
         collection,
@@ -232,7 +299,8 @@ def build():
 
     for side, tag in ((-1, "L"), (1, "R")):
         flange_x = side * (PLATEN_LENGTH + FLANGE_WIDTH) / 2
-        knob_x = side * (PLATEN_LENGTH + FLANGE_WIDTH * 2 + KNOB_WIDTH) / 2
+        spacer = RATCHET_WIDTH * 1.4
+        knob_x = side * (PLATEN_LENGTH / 2 + FLANGE_WIDTH + spacer + KNOB_WIDTH / 2)
 
         add_mesh(
             collection,
@@ -253,6 +321,64 @@ def build():
             ),
             steel,
         )
+
+        hub_x = knob_x + side * (KNOB_WIDTH + HUB_WIDTH) / 2
+        add_mesh(
+            collection,
+            f"Knob Hub {tag}",
+            lambda bm, x=hub_x: lying_cylinder(
+                bm, HUB_RADIUS, HUB_WIDTH, 48, place(x, AXIS_Y, AXIS_Z),
+                bevel=0.015 * INCH,
+            ),
+            brass,
+        )
+        add_mesh(
+            collection,
+            f"Knob Screw {tag}",
+            lambda bm, x=hub_x + side * HUB_WIDTH / 2: screw(
+                bm, place(x, AXIS_Y, AXIS_Z), side,
+            ),
+            steel,
+        )
+
+        # Three screws around each flange, where it bolts to the platen core.
+        for index in range(3):
+            angle = index * 2 * math.pi / 3 + math.pi / 6
+            add_mesh(
+                collection,
+                f"Flange Screw {tag}{index}",
+                lambda bm, x=flange_x + side * FLANGE_WIDTH / 2, a=angle: screw(
+                    bm,
+                    place(
+                        x,
+                        AXIS_Y + math.cos(a) * FLANGE_RADIUS * 0.62,
+                        AXIS_Z + math.sin(a) * FLANGE_RADIUS * 0.62,
+                    ),
+                    side,
+                ),
+                steel,
+            )
+
+    # The line-space ratchet sits in the gap between the right flange and its
+    # knob; the left gets a plain collar in the same gap.
+    gap_x = PLATEN_LENGTH / 2 + FLANGE_WIDTH + RATCHET_WIDTH * 0.7
+    add_mesh(
+        collection,
+        "Ratchet",
+        lambda bm: fluted_cylinder(
+            bm, RATCHET_RADIUS, RATCHET_WIDTH, place(gap_x, AXIS_Y, AXIS_Z),
+            RATCHET_TEETH, RATCHET_DEPTH,
+        ),
+        brass,
+    )
+    add_mesh(
+        collection,
+        "Collar L",
+        lambda bm: lying_cylinder(
+            bm, ROLLER_RADIUS * 0.55, RATCHET_WIDTH, 32, place(-gap_x, AXIS_Y, AXIS_Z),
+        ),
+        steel,
+    )
 
     add_mesh(
         collection,
@@ -295,8 +421,8 @@ def build():
             dark_steel,
         )
 
-    build_frames(collection, rubber)
-    build_scale(collection, steel)
+    build_frames(collection, enamel)
+    build_scale(collection, steel, brass)
     build_type_guide(collection, dark_steel)
 
     return collection
@@ -329,7 +455,7 @@ def build_frames(collection, mat):
         )
 
 
-def build_scale(collection, mat):
+def build_scale(collection, mat, steel_for_numbers):
     """The ruler the typist reads their column off, ticked every character and
     stepped up every fifth and tenth, so a glance lands on a number.
 
@@ -377,6 +503,29 @@ def build_scale(collection, mat):
             )
 
     add_mesh(collection, "Alignment Scale", geometry, mat)
+
+    face_z = SCALE_STANDOFF + SCALE_THICKNESS / 2
+    for column in range(0, COLUMNS + 1, 10):
+        number_mesh(
+            collection,
+            str(column),
+            place(column_x(column - 0.5), -SCALE_DROP - SCALE_HEIGHT * 0.12, face_z),
+            steel_for_numbers,
+        )
+
+    def stops(bm):
+        for column in (0, COLUMNS):
+            box(
+                bm,
+                measure(STOP_WIDTH, STOP_HEIGHT, STOP_THICKNESS),
+                place(
+                    column_x(column - 0.5),
+                    -SCALE_DROP + (STOP_HEIGHT - SCALE_HEIGHT) / 2,
+                    SCALE_STANDOFF + STOP_THICKNESS / 2,
+                ),
+            )
+
+    add_mesh(collection, "Margin Stops", stops, mat)
 
 
 def build_type_guide(collection, mat):

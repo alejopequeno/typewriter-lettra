@@ -7,12 +7,11 @@ import {
   type TypewriterAudio,
 } from "@/audio/typewriter-audio";
 import {
+  carriageColumn,
   carriageReturn,
   createState,
   currentLine,
   isPrintable,
-  lineToString,
-  retreat,
   strike,
   type TypewriterState,
 } from "@/core/typewriter-machine";
@@ -95,8 +94,9 @@ export const Typewriter = () => {
 
     const keys = keysRef.current;
     if (!keys) return;
-    keys.value = lineToString(currentLine(next));
-    keys.setSelectionRange(next.column, next.column);
+    keys.value = currentLine(next);
+    const column = carriageColumn(next);
+    keys.setSelectionRange(column, column);
   }, []);
 
   /** Prints one character, whichever road it arrived by. */
@@ -130,7 +130,7 @@ export const Typewriter = () => {
         event.preventDefault();
         const machine = audio();
         void machine.resume();
-        setAnnouncement(lineToString(currentLine(stateRef.current)));
+        setAnnouncement(currentLine(stateRef.current));
         commit(carriageReturn(stateRef.current));
         machine.carriageReturn();
         setStarted(true);
@@ -138,10 +138,10 @@ export const Typewriter = () => {
       }
 
       if (event.key === "Backspace") {
+        // There is no key on this machine that moves the carriage back. The
+        // default is still swallowed so the textarea stays in step with the
+        // page.
         event.preventDefault();
-        // Nothing comes off the page. The carriage walks back and the next
-        // strike lands on top, which is how a typewriter crosses out.
-        commit(retreat(stateRef.current));
         return;
       }
 
@@ -204,8 +204,7 @@ export const Typewriter = () => {
       />
 
       <p id="sheet-help" className="sr-only">
-        Enter devuelve el carro. Retroceso mueve el carro a la izquierda sin
-        borrar, así que la próxima tecla se imprime encima.
+        Enter devuelve el carro. No hay retroceso: lo escrito queda escrito.
       </p>
 
       <p className="sr-only" aria-live="polite">

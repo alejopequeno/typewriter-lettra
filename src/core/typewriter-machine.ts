@@ -2,21 +2,16 @@
  * The typewriter's rules, as a pure state machine. No DOM, no Three.js, no
  * React — strike a key, get a new state back.
  *
- * The machine is faithful to a mechanical typewriter in the way that matters:
- * the carriage only ever moves forward when you type, and nothing you have
- * already printed can be taken off the page.
+ * The machine is faithful to a mechanical typewriter in the one way that
+ * matters: the carriage only ever moves forward. There is no key that takes
+ * it back, so nothing you have printed can be reached again, let alone taken
+ * off the page.
  */
 
-/** Characters struck at one column, oldest first. More than one means the
- * carriage was walked back and the typist printed on top of their own ink. */
-export type Cell = string;
-
-export type Line = readonly Cell[];
+export type Line = string;
 
 export interface TypewriterState {
   readonly lines: readonly Line[];
-  /** Carriage position on the current line, 0-based. */
-  readonly column: number;
 }
 
 export interface TypewriterConfig {
@@ -27,10 +22,8 @@ export interface TypewriterConfig {
 }
 
 export type StrikeOutcome =
-  /** Ink went onto bare paper. */
+  /** Ink went onto the page. */
   | "printed"
-  /** Ink went on top of ink: the cell now holds a stack. */
-  | "overstruck"
   /** The carriage is against the right margin and the keys are locked. */
   | "jammed";
 
@@ -46,31 +39,18 @@ export const DEFAULT_CONFIG: TypewriterConfig = {
   bellColumn: 54,
 };
 
-const EMPTY_LINE: Line = [];
-
-export const createState = (): TypewriterState => ({
-  lines: [EMPTY_LINE],
-  column: 0,
-});
+export const createState = (): TypewriterState => ({ lines: [""] });
 
 export const currentLine = (state: TypewriterState): Line =>
   state.lines[state.lines.length - 1];
 
-/** The topmost character of each cell — what a reader sees, and what a screen
- * reader is told. */
-export const lineToString = (line: Line): string =>
-  line.map((cell) => cell[cell.length - 1] ?? " ").join("");
+/** Where the next character lands. The carriage can only advance, so this is
+ * always the end of the line being typed. */
+export const carriageColumn = (state: TypewriterState): number =>
+  currentLine(state).length;
 
-const isBlank = (cell: Cell | undefined): boolean =>
-  cell === undefined || cell.trim() === "";
-
-const replaceLine = (
-  state: TypewriterState,
-  line: Line,
-  column: number,
-): TypewriterState => ({
+const replaceLine = (state: TypewriterState, line: Line): TypewriterState => ({
   lines: [...state.lines.slice(0, -1), line],
-  column,
 });
 
 export const strike = (
@@ -78,36 +58,21 @@ export const strike = (
   char: string,
   config: TypewriterConfig = DEFAULT_CONFIG,
 ): StrikeResult => {
-  if (state.column >= config.columns) {
+  if (carriageColumn(state) >= config.columns) {
     return { state, outcome: "jammed", bell: false };
   }
 
-  const line = currentLine(state);
-  const existing = line[state.column];
-  // Ink on bare paper replaces; ink on ink stacks.
-  const struck = isBlank(existing) ? char : existing + char;
-
-  const next = [...line];
-  next[state.column] = struck;
-
-  const column = state.column + 1;
+  const line = currentLine(state) + char;
 
   return {
-    state: replaceLine(state, next, column),
-    outcome: isBlank(existing) ? "printed" : "overstruck",
-    bell: column === config.bellColumn,
+    state: replaceLine(state, line),
+    outcome: "printed",
+    bell: line.length === config.bellColumn,
   };
 };
 
-/** Walks the carriage back one column without erasing, so the next strike
- * lands on top of what is already there. This is how a typewriter crosses a
- * word out, and it is the only way to build a stacked cell. */
-export const retreat = (state: TypewriterState): TypewriterState =>
-  state.column === 0 ? state : { ...state, column: state.column - 1 };
-
 export const carriageReturn = (state: TypewriterState): TypewriterState => ({
-  lines: [...state.lines, EMPTY_LINE],
-  column: 0,
+  lines: [...state.lines, ""],
 });
 
 /** A `KeyboardEvent.key` that stands for a character rather than a command.

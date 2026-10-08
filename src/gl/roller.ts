@@ -10,8 +10,9 @@
  */
 
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Group, Mesh } from "three/webgpu";
+import { Group, Material, Mesh } from "three/webgpu";
 
+import { createHardwareMaterials } from "./materials/hardware-materials";
 import { columnX } from "./sheet-metrics";
 
 const MODEL = "/models/roller.glb";
@@ -37,7 +38,10 @@ const chase = (at: number, target: number, stiffness: number, dt: number) =>
   at + (target - at) * (1 - Math.exp(-stiffness * dt));
 
 export const loadRoller = async (): Promise<Roller> => {
-  const gltf = await new GLTFLoader().loadAsync(MODEL);
+  const [gltf, surfaces] = await Promise.all([
+    new GLTFLoader().loadAsync(MODEL),
+    createHardwareMaterials(),
+  ]);
   const group = gltf.scene;
 
   group.traverse((object) => {
@@ -45,6 +49,13 @@ export const loadRoller = async (): Promise<Roller> => {
     object.castShadow = true;
     // The platen takes the shadow of the sheet curling over it.
     object.receiveShadow = true;
+
+    // The GLB's materials are flat constants; swap in the worn ones by name.
+    const current: unknown = object.material;
+    const name =
+      current instanceof Material ? current.name : undefined;
+    const worn = name === undefined ? undefined : surfaces.get(name);
+    if (worn) object.material = worn;
   });
 
   // The only part that moves. The scale it rides in is bolted to the frames,

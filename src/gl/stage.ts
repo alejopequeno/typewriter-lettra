@@ -23,7 +23,7 @@ import {
 } from "three/webgpu";
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 
-import type { TypewriterState } from "@/core/typewriter-machine";
+import { carriageColumn, type TypewriterState } from "@/core/typewriter-machine";
 import { createDocument, type TypedDocument } from "./document";
 import { createInkMaterial } from "./materials/ink-material";
 import { createPaperMaterial } from "./materials/paper-material";
@@ -218,7 +218,7 @@ export const createStage = async (
 
   let scroll = 0;
   let target = 0;
-  let carriageColumn = 0;
+  let column = 0;
   let previous = performance.now();
   const snap = prefersReducedMotion();
 
@@ -233,7 +233,7 @@ export const createStage = async (
 
     scrollY.value = scroll;
     page.cull(scroll);
-    roller?.setColumn(carriageColumn);
+    roller?.setColumn(column);
     roller?.update(dt);
     post.render();
   });
@@ -241,7 +241,7 @@ export const createStage = async (
   const sync = (state: TypewriterState): void => {
     page.sync(state);
     target = scrollForLine(state.lines.length - 1);
-    carriageColumn = state.column;
+    column = carriageColumn(state);
   };
 
   const dispose = (): void => {

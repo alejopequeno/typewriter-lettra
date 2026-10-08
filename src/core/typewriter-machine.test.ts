@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  carriageColumn,
   carriageReturn,
   createState,
   currentLine,
   isPrintable,
-  lineToString,
-  retreat,
   strike,
   type TypewriterConfig,
 } from "./typewriter-machine";
@@ -20,18 +19,21 @@ describe("strike", () => {
   it("prints the character at the carriage and advances", () => {
     const { state, outcome } = strike(createState(), "A", config);
 
-    expect(lineToString(currentLine(state))).toBe("A");
-    expect(state.column).toBe(1);
+    expect(currentLine(state)).toBe("A");
+    expect(carriageColumn(state)).toBe(1);
     expect(outcome).toBe("printed");
   });
 
   it("builds up a line left to right", () => {
-    expect(lineToString(currentLine(type("hola")))).toBe("hola");
+    expect(currentLine(type("hola"))).toBe("hola");
+  });
+
+  it("advances the carriage over blanks", () => {
+    expect(currentLine(type("a b"))).toBe("a b");
   });
 
   it("rings the bell when the carriage reaches the warning column", () => {
-    const before = type("abcde");
-    expect(strike(before, "f", config).bell).toBe(true);
+    expect(strike(type("abcde"), "f", config).bell).toBe(true);
   });
 
   it("stays silent on every other column", () => {
@@ -40,39 +42,11 @@ describe("strike", () => {
   });
 
   it("jams at the right margin instead of printing", () => {
-    const full = type("abcdefgh");
-    const { state, outcome } = strike(full, "i", config);
+    const { state, outcome } = strike(type("abcdefgh"), "i", config);
 
     expect(outcome).toBe("jammed");
-    expect(lineToString(currentLine(state))).toBe("abcdefgh");
-    expect(state.column).toBe(8);
-  });
-});
-
-describe("retreat", () => {
-  it("moves the carriage back without erasing", () => {
-    const state = retreat(type("sol"));
-
-    expect(state.column).toBe(2);
-    expect(lineToString(currentLine(state))).toBe("sol");
-  });
-
-  it("stops at the left margin", () => {
-    expect(retreat(retreat(createState())).column).toBe(0);
-  });
-
-  it("stacks the next strike on top of what was already there", () => {
-    const { state, outcome } = strike(retreat(type("sol")), "x", config);
-
-    expect(outcome).toBe("overstruck");
-    expect(currentLine(state)[2]).toBe("lx");
-    expect(state.column).toBe(3);
-  });
-
-  it("reports the topmost character of a stacked cell as the line text", () => {
-    const state = strike(retreat(type("sol")), "x", config).state;
-
-    expect(lineToString(currentLine(state))).toBe("sox");
+    expect(currentLine(state)).toBe("abcdefgh");
+    expect(carriageColumn(state)).toBe(8);
   });
 });
 
@@ -80,28 +54,16 @@ describe("carriageReturn", () => {
   it("opens a new line and returns the carriage", () => {
     const state = carriageReturn(type("uno"));
 
-    expect(state.column).toBe(0);
+    expect(carriageColumn(state)).toBe(0);
     expect(state.lines).toHaveLength(2);
-    expect(lineToString(currentLine(state))).toBe("");
+    expect(currentLine(state)).toBe("");
   });
 
   it("leaves the finished line untouched", () => {
     const state = type("dos", carriageReturn(type("uno")));
 
-    expect(lineToString(state.lines[0])).toBe("uno");
-    expect(lineToString(state.lines[1])).toBe("dos");
-  });
-});
-
-describe("spaces", () => {
-  it("advances the carriage over blanks", () => {
-    expect(lineToString(currentLine(type("a b")))).toBe("a b");
-  });
-
-  it("keeps trailing blanks addressable after a retreat", () => {
-    const state = strike(retreat(type("a  ")), "z", config).state;
-
-    expect(lineToString(currentLine(state))).toBe("a z");
+    expect(state.lines[0]).toBe("uno");
+    expect(state.lines[1]).toBe("dos");
   });
 });
 
@@ -124,13 +86,11 @@ describe("isPrintable", () => {
 describe("immutability", () => {
   it("never mutates the state it was handed", () => {
     const before = type("abc");
-    const snapshot = before.lines.map(lineToString);
 
     strike(before, "d", config);
     carriageReturn(before);
-    retreat(before);
 
-    expect(before.lines.map(lineToString)).toEqual(snapshot);
-    expect(before.column).toBe(3);
+    expect(before.lines).toEqual(["abc"]);
+    expect(carriageColumn(before)).toBe(3);
   });
 });

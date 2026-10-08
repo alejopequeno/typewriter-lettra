@@ -19,7 +19,7 @@ No es un editor. Es un objeto. El valor está en cómo se siente escribir.
 | Decisión | Elegido | Por qué |
 | --- | --- | --- |
 | Encuadre | Hoja + rodillo, resto fuera de cuadro | La hoja es lo que se mira. El rodillo da contexto vintage con poco espacio y habilita el detalle que vende la ilusión: el papel se mueve. |
-| Comportamiento | Fiel y brutal — sin backspace | Obliga a pensar antes de escribir. Es el punto de la pieza. Se probó con borrado un rato y se volvió atrás: ver abajo. |
+| Comportamiento | Fiel y brutal — el carro nunca vuelve | Obliga a pensar antes de escribir. Es el punto de la pieza. Se probó con borrado, después con retroceso sin borrado, y las dos se descartaron: ver abajo. |
 | Fin de hoja | Infinita, scroll hacia arriba | Hipnótico y sin estado que administrar. |
 | Texto | Mallas 3D de lettra sobre el papel | Nitidez máxima (MSDF en espacio de pantalla) y control total del material vía `buildTextGraph()`. |
 | Tipografía | Courier Prime 400 (SIL OFL) | Limpia. El desgaste lo pone el shader, así nunca se repite. Special Elite trae el grunge dibujado dentro de la fuente y la misma letra sale rota igual siempre. |
@@ -41,9 +41,8 @@ Cero Three.js, cero React, cero DOM. Determinista y testeable.
   `strike(char)`, `carriageReturn()`, `tab()`. Reglas: ancho de margen en
   columnas, campanazo a N columnas del margen, el carro **no retrocede**.
   Al pasarse del margen la tecla no imprime (como la real: se traba).
-- **`overstrike.ts`** — qué hace backspace. En la real, retroceder e
-  imprimir encima tacha. Modelamos eso: backspace mueve el carro atrás sin
-  borrar, y la siguiente tecla queda superpuesta.
+- Backspace no existe. `strike` solo anexa; el carro no tiene cómo volver, y
+  el estado es una lista de strings sin ninguna noción de celda ni de pila.
 
 Esta capa es la que lleva tests. Las reglas de margen, campana y retorno
 de carro son exactamente el tipo de lógica que se rompe sin avisar.
@@ -153,10 +152,16 @@ completa, multijugador.
   hasta que el carro llega ahí.
 - **Las tildes entran por `beforeinput`, no por `keydown`.** Son teclas
   muertas: el carácter compuesto no existe en el evento de tecla.
-- **El retroceso no borra, y eso es definitivo.** Hubo una versión en la que
-  Backspace borraba y Shift+Backspace tachaba; probada, se descartó. El carro
-  vuelve atrás y la siguiente tecla imprime encima. Tachar es la única forma
-  de arreglar un error, como en la máquina.
+- **Backspace no hace nada, y eso es definitivo.** Hubo tres versiones:
+  retroceder sin borrar (tachar imprimiendo encima), borrar de verdad, y
+  otra vez retroceder. Usadas, ninguna sirvió: cualquier cosa que mueva el
+  carro hacia atrás se siente como un editor roto. El carro solo avanza. Con
+  eso el núcleo pierde la pila de celdas y el apilado de capas en la
+  geometría: una línea es un string.
+- **Los materiales del hardware se reemplazan al cargar el GLB.** Blender
+  exporta constantes planas; `hardware-materials.ts` las cambia por nombre
+  por superficies con desgaste procedural y rayones de Poly Haven
+  (`metal_plate`, muestreado triplanar porque el modelo no lleva UVs).
 - **La escala está atornillada y el papel es lo que se mueve.** Primero la
   escala seguía al renglón hacia abajo mientras la página se llenaba; una
   pieza que se desliza sola por el papel no puede estar sujeta a nada, y se

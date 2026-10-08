@@ -28,18 +28,13 @@ export interface DocumentOptions {
   readonly material: Material;
 }
 
-const CELL_SEPARATOR = String.fromCharCode(31);
-
-/** A line's identity as drawn. Cheaper to compare than to rebuild. */
-const signatureOf = (line: Line): string => line.join(CELL_SEPARATOR);
-
 export const createDocument = ({
   font,
   material,
 }: DocumentOptions): TypedDocument => {
   const group = new Group();
   const meshes = new Map<number, Mesh>();
-  const signatures = new Map<number, string>();
+  const drawn = new Map<number, Line>();
   /** Lines below this have left the page for good. */
   let oldestLive = 0;
 
@@ -50,7 +45,7 @@ export const createDocument = ({
       mesh.geometry.dispose();
       meshes.delete(lineNumber);
     }
-    signatures.delete(lineNumber);
+    drawn.delete(lineNumber);
   };
 
   const draw = (lineNumber: number, line: Line): void => {
@@ -74,10 +69,9 @@ export const createDocument = ({
   const sync = (state: TypewriterState): void => {
     for (let n = oldestLive; n < state.lines.length; n += 1) {
       const line = state.lines[n];
-      const signature = signatureOf(line);
-      if (signatures.get(n) === signature) continue;
+      if (drawn.get(n) === line) continue;
 
-      signatures.set(n, signature);
+      drawn.set(n, line);
       if (line.length === 0) release(n);
       else draw(n, line);
     }
