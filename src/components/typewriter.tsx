@@ -20,7 +20,7 @@ import type { Stage } from "@/gl/stage";
 type Status = "loading" | "ready" | "unsupported";
 
 /** Read out to assistive tech; the sighted version is typed on the page. */
-const REFUSAL = "No se puede borrar. Es una máquina de escribir.";
+const REFUSAL = "You can't delete. It's a typewriter.";
 
 /** Keys that mean "the browser is doing something else". */
 const isShortcut = (event: React.KeyboardEvent): boolean =>
@@ -211,7 +211,7 @@ export const Typewriter = () => {
       <canvas ref={canvasRef} className="typewriter__canvas" />
 
       <label className="sr-only" htmlFor="sheet">
-        La hoja. Escribí: el carro no vuelve atrás y nada se borra.
+        The page. Type here: the carriage never goes back and nothing is erased.
       </label>
       <textarea
         id="sheet"
@@ -231,7 +231,7 @@ export const Typewriter = () => {
       />
 
       <p id="sheet-help" className="sr-only">
-        Enter devuelve el carro. No hay retroceso: lo escrito queda escrito.
+        Enter returns the carriage. There is no backspace: what is typed stays typed.
       </p>
 
       <p className="sr-only" aria-live="polite">
@@ -240,7 +240,7 @@ export const Typewriter = () => {
 
       {status === "unsupported" && (
         <p className="typewriter__notice" role="alert">
-          Este navegador no puede dibujar la escena. Hace falta WebGPU o WebGL2.
+          This browser can&apos;t draw the scene. It needs WebGPU or WebGL2.
         </p>
       )}
     </div>

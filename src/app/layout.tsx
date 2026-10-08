@@ -3,9 +3,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Máquina de escribir",
+  title: "Typewriter",
   description:
-    "Una hoja, un rodillo y un teclado. El carro no vuelve atrás y nada se borra.",
+    "A sheet, a platen and a keyboard. The carriage never goes back and nothing is erased.",
 };
 
 export const viewport: Viewport = {
@@ -14,7 +14,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className="h-full">
+    <html lang="en" className="h-full">
       <body className="h-full">{children}</body>
     </html>
   );
