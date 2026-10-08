@@ -84,12 +84,15 @@ export const Typewriter = () => {
 
   /** The camera leans with the pointer. Purely additive: nothing here is
    * reachable only by mouse, and keyboard users get the resting view. */
-  const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-    const y = ((event.clientY - bounds.top) / bounds.height) * -2 + 1;
-    stageRef.current?.look(x, y);
-  }, []);
+  const onPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+      const y = ((event.clientY - bounds.top) / bounds.height) * -2 + 1;
+      stageRef.current?.look(x, y);
+    },
+    [],
+  );
 
   const onPointerLeave = useCallback(() => {
     stageRef.current?.look(0, 0);
@@ -234,10 +237,6 @@ export const Typewriter = () => {
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>
-
-      {status === "loading" && (
-        <p className="typewriter__notice">cargando la máquina…</p>
-      )}
 
       {status === "unsupported" && (
         <p className="typewriter__notice" role="alert">

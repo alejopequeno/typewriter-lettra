@@ -530,13 +530,17 @@ def build_scale(collection, mat, steel_for_numbers):
             steel_for_numbers,
         )
 
+    # The stops sit just outside the guide's travel: the slider butts against
+    # them at column 0 and at the last column, edge to edge, never over them.
+    clearance = (STOP_WIDTH + GUIDE_SLIDER_WIDTH) / 2
+
     def stops(bm):
-        for column in (0, COLUMNS):
+        for x in (column_x(0) - clearance, column_x(COLUMNS) + clearance):
             box(
                 bm,
                 measure(STOP_WIDTH, STOP_HEIGHT, STOP_THICKNESS),
                 place(
-                    column_x(column - 0.5),
+                    x,
                     -SCALE_DROP + (STOP_HEIGHT - SCALE_HEIGHT) / 2,
                     SCALE_STANDOFF + STOP_THICKNESS / 2,
                 ),

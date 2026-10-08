@@ -17,7 +17,9 @@ export interface TypewriterState {
 export interface TypewriterConfig {
   /** Columns between the left and right margins. The carriage jams past this. */
   readonly columns: number;
-  /** Carriage position whose arrival rings the margin bell. */
+  /** Carriage position whose arrival rings the bell. On this machine it is
+   * the last column: the bell says the line is full, not that it is about
+   * to be. */
   readonly bellColumn: number;
 }
 
@@ -36,7 +38,7 @@ export interface StrikeResult {
 
 export const DEFAULT_CONFIG: TypewriterConfig = {
   columns: 62,
-  bellColumn: 54,
+  bellColumn: 62,
 };
 
 export const createState = (): TypewriterState => ({ lines: [""] });

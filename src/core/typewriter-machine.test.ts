@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_CONFIG,
   carriageColumn,
   carriageReturn,
   createState,
@@ -39,6 +40,10 @@ describe("strike", () => {
   it("stays silent on every other column", () => {
     expect(strike(createState(), "a", config).bell).toBe(false);
     expect(strike(type("abcdef"), "g", config).bell).toBe(false);
+  });
+
+  it("rings on the last column by default, so the bell means the line is full", () => {
+    expect(DEFAULT_CONFIG.bellColumn).toBe(DEFAULT_CONFIG.columns);
   });
 
   it("jams at the right margin instead of printing", () => {
