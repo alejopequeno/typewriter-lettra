@@ -54,6 +54,30 @@ BAIL_WHEEL_WIDTH = 0.5 * INCH
 BAIL_WHEEL_OFFSET = SHEET_WIDTH * 0.26
 BAIL_ARM_LENGTH = 0.95 * INCH
 
+# Typing geometry, mirrored from sheet-metrics.ts.
+CHAR_WIDTH = INCH / 10
+LEFT_MARGIN = 1.15 * INCH
+COLUMNS = 62
+PRINT_LINE_DROP = 3.4 * INCH
+
+# The scale rides below the line being typed. The gap has to clear the
+# tallest tick as well as the descenders, or the two tangle.
+SCALE_DROP = PRINT_LINE_DROP + 0.46 * INCH
+SCALE_STANDOFF = 0.1 * INCH
+SCALE_THICKNESS = 0.028 * INCH
+SCALE_HEIGHT = 0.1 * INCH
+TICK_WIDTH = 0.012 * INCH
+TICK_SHORT = 0.055 * INCH
+TICK_MEDIUM = 0.09 * INCH
+TICK_LONG = 0.13 * INCH
+
+# The fork that marks the exact printing point.
+GUIDE_WIDTH = 3.1 * CHAR_WIDTH
+GUIDE_HEIGHT = 0.34 * INCH
+GUIDE_THICKNESS = 0.03 * INCH
+GUIDE_STANDOFF = SCALE_STANDOFF + 0.045 * INCH
+GUIDE_NOTCH = 1.25 * CHAR_WIDTH
+
 AXIS_Y = 0.0
 AXIS_Z = -ROLLER_RADIUS
 BAIL_Y = -BAIL_DROP
@@ -147,6 +171,11 @@ def fluted_cylinder(bm, radius, length, centre, flutes, depth):
         ripple = 1 - depth * (0.5 - 0.5 * math.cos(angle * flutes))
         vert.co.y = centre.y + offset.y * ripple
         vert.co.z = centre.z + offset.z * ripple
+
+
+def column_x(column):
+    """Centre of a typed column, in web-scene x."""
+    return LEFT_MARGIN - SHEET_WIDTH / 2 + (column + 0.5) * CHAR_WIDTH
 
 
 def box(bm, size, centre):
@@ -254,7 +283,89 @@ def build():
             dark_steel,
         )
 
+    build_scale(collection, steel)
+    build_type_guide(collection, dark_steel)
+
     return collection
+
+
+def build_scale(collection, mat):
+    """The ruler the typist reads their column off, ticked every character and
+    stepped up every fifth and tenth, so a glance lands on a number."""
+
+    def geometry(bm):
+        width = (COLUMNS + 2) * CHAR_WIDTH
+        box(
+            bm,
+            measure(width, SCALE_HEIGHT, SCALE_THICKNESS),
+            place(
+                column_x(COLUMNS / 2 - 0.5),
+                -SCALE_DROP,
+                SCALE_STANDOFF,
+            ),
+        )
+
+        for column in range(COLUMNS + 1):
+            if column % 10 == 0:
+                length = TICK_LONG
+            elif column % 5 == 0:
+                length = TICK_MEDIUM
+            else:
+                length = TICK_SHORT
+
+            # Ticks stand up out of the rule, towards the line being typed.
+            # Sunk into it they are the same slab and read as nothing.
+            box(
+                bm,
+                measure(TICK_WIDTH, length, SCALE_THICKNESS * 0.75),
+                place(
+                    column_x(column - 0.5),
+                    -SCALE_DROP + SCALE_HEIGHT / 2 + length / 2,
+                    SCALE_STANDOFF,
+                ),
+            )
+
+    add_mesh(collection, "Alignment Scale", geometry, mat)
+
+
+def build_type_guide(collection, mat):
+    """The fork that sits at the printing point.
+
+    Built around x = 0 so the web scene can slide it to the carriage's column
+    by setting nothing but `position.x`.
+    """
+
+    def geometry(bm):
+        cheek = (GUIDE_WIDTH - GUIDE_NOTCH) / 2
+        centre = GUIDE_WIDTH / 2 - cheek / 2
+
+        for side in (-1, 1):
+            # The two cheeks either side of the character being struck.
+            box(
+                bm,
+                measure(cheek, GUIDE_HEIGHT, GUIDE_THICKNESS),
+                place(side * centre, -SCALE_DROP, GUIDE_STANDOFF),
+            )
+            # Each one tapers to a point at the top, which is what actually
+            # reads as "here" at a glance.
+            box(
+                bm,
+                measure(cheek * 0.42, GUIDE_HEIGHT * 0.55, GUIDE_THICKNESS),
+                place(
+                    side * (GUIDE_WIDTH / 2 - cheek * 0.21),
+                    -SCALE_DROP + GUIDE_HEIGHT * 0.72,
+                    GUIDE_STANDOFF,
+                ),
+            )
+
+        # The bridge joining them behind the scale.
+        box(
+            bm,
+            measure(GUIDE_WIDTH, GUIDE_HEIGHT * 0.3, GUIDE_THICKNESS),
+            place(0, -SCALE_DROP - GUIDE_HEIGHT * 0.42, GUIDE_STANDOFF),
+        )
+
+    add_mesh(collection, "Type Guide", geometry, mat)
 
 
 def export(collection, path):

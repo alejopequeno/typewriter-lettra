@@ -16,6 +16,7 @@ import {
   PlaneGeometry,
   Scene,
   SpotLight,
+  Vector3,
   PCFSoftShadowMap,
   WebGPURenderer,
 } from "three/webgpu";
@@ -25,13 +26,17 @@ import type { TypewriterState } from "@/core/typewriter-machine";
 import { createDocument, type TypedDocument } from "./document";
 import { createInkMaterial } from "./materials/ink-material";
 import { createPaperMaterial } from "./materials/paper-material";
-import { loadRoller } from "./roller";
+import { createPost } from "./post";
+import { loadRoller, type Roller } from "./roller";
+import { createBackdrop } from "./backdrop";
 import {
   CURL_TANGENT_Y,
   INCH,
   SHEET_DROP,
   SHEET_RISE,
+  PRINT_LINE_DROP,
   SHEET_WIDTH,
+  lineBaselineY,
   scrollForLine,
 } from "./sheet-metrics";
 
@@ -118,14 +123,21 @@ export const createStage = async (
   );
   // The plane is built centred; shift it so its top edge meets the platen.
   sheet.geometry.translate(0, (SHEET_RISE - SHEET_DROP) / 2, 0);
+  sheet.castShadow = true;
   sheet.receiveShadow = true;
   sheet.frustumCulled = false;
   scene.add(sheet);
 
+  scene.add(createBackdrop());
+
   // The platen is scenery: if it fails to load the machine still types, so it
   // arrives on its own schedule rather than holding up the first frame.
+  let roller: Roller | null = null;
   void loadRoller()
-    .then((roller) => scene.add(roller))
+    .then((loaded) => {
+      roller = loaded;
+      scene.add(loaded.group);
+    })
     .catch((error: unknown) => console.error("the platen is missing", error));
 
   const page: TypedDocument = createDocument({
@@ -142,7 +154,7 @@ export const createStage = async (
   lamp.castShadow = true;
   lamp.shadow.mapSize.set(2048, 2048);
   lamp.shadow.camera.near = 0.2;
-  lamp.shadow.camera.far = 2.6;
+  lamp.shadow.camera.far = 3.4;
   lamp.shadow.bias = -0.0004;
   lamp.shadow.normalBias = 0.004;
   // A lamp this close throws a soft edge, and the page bounces light back into
@@ -176,13 +188,24 @@ export const createStage = async (
     camera.lookAt(0, FRAMING_CENTRE_Y, 0);
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
+
+    // Hold focus on the line being typed; the curl and the wall fall off it.
+    post.focusOn(
+      camera.position.distanceTo(
+        new Vector3(0, CURL_TANGENT_Y - PRINT_LINE_DROP, 0),
+      ),
+    );
   };
+
+  const post = createPost({ renderer, scene, camera });
 
   resize();
   void loadEnvironment(scene);
 
   let scroll = 0;
   let target = 0;
+  let carriageColumn = 0;
+  let activeLine = 0;
   let previous = performance.now();
   const snap = prefersReducedMotion();
 
@@ -197,16 +220,26 @@ export const createStage = async (
 
     scrollY.value = scroll;
     page.cull(scroll);
-    renderer.render(scene, camera);
+    roller?.setColumn(carriageColumn);
+    // Until the page starts rolling, the line being typed is above the print
+    // line; the scale and guide follow it down rather than waiting there.
+    roller?.setLineOffset(
+      lineBaselineY(activeLine) + scroll - (CURL_TANGENT_Y - PRINT_LINE_DROP),
+    );
+    roller?.update(dt);
+    post.render();
   });
 
   const sync = (state: TypewriterState): void => {
     page.sync(state);
     target = scrollForLine(state.lines.length - 1);
+    carriageColumn = state.column;
+    activeLine = state.lines.length - 1;
   };
 
   const dispose = (): void => {
     renderer.setAnimationLoop(null);
+    post.dispose();
     page.dispose();
     sheet.geometry.dispose();
     renderer.dispose();

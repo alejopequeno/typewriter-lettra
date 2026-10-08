@@ -16,6 +16,12 @@ export const LINE_STEP = INCH / 6;
 /** Left margin, measured from the sheet's left edge. */
 export const LEFT_MARGIN = 1.15 * INCH;
 
+/** Centre of a typed column — where the type guide parks and the next
+ * character lands. `tools/blender/roller.py` repeats this to build the scale's
+ * ticks, so the fork lines up with them. */
+export const columnX = (column: number): number =>
+  LEFT_MARGIN - SHEET_WIDTH / 2 + (column + 0.5) * CHAR_WIDTH;
+
 /**
  * Paper space has y pointing up with the origin at the curl tangent — the
  * line where the sheet leaves the roller and becomes flat. Everything the
