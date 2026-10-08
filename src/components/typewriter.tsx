@@ -10,6 +10,7 @@ import {
   carriageReturn,
   createState,
   currentLine,
+  erase,
   isPrintable,
   lineToString,
   retreat,
@@ -139,7 +140,13 @@ export const Typewriter = () => {
 
       if (event.key === "Backspace") {
         event.preventDefault();
-        commit(retreat(stateRef.current));
+        // Shift holds the carriage back without erasing, which is how you
+        // cross a word out by printing over it.
+        commit(
+          event.shiftKey
+            ? retreat(stateRef.current)
+            : erase(stateRef.current),
+        );
         return;
       }
 
@@ -182,7 +189,7 @@ export const Typewriter = () => {
       <canvas ref={canvasRef} className="typewriter__canvas" />
 
       <label className="sr-only" htmlFor="sheet">
-        La hoja. Escribí: el carro no vuelve atrás y nada se borra.
+        La hoja. Escribí acá.
       </label>
       <textarea
         id="sheet"
@@ -202,8 +209,9 @@ export const Typewriter = () => {
       />
 
       <p id="sheet-help" className="sr-only">
-        Enter devuelve el carro. Retroceso mueve el carro a la izquierda sin
-        borrar, así que la próxima tecla se imprime encima.
+        Enter devuelve el carro. Retroceso borra el carácter anterior.
+        Mayúsculas más retroceso mueve el carro atrás sin borrar, así que la
+        próxima tecla se imprime encima y tacha lo que había.
       </p>
 
       <p className="sr-only" aria-live="polite">

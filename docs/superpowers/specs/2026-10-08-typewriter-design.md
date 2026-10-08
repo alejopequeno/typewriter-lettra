@@ -19,7 +19,7 @@ No es un editor. Es un objeto. El valor está en cómo se siente escribir.
 | Decisión | Elegido | Por qué |
 | --- | --- | --- |
 | Encuadre | Hoja + rodillo, resto fuera de cuadro | La hoja es lo que se mira. El rodillo da contexto vintage con poco espacio y habilita el detalle que vende la ilusión: el papel se mueve. |
-| Comportamiento | Fiel y brutal — sin backspace | Obliga a pensar antes de escribir. Es el punto de la pieza. |
+| Comportamiento | Fiel, pero el retroceso borra | Ver abajo: la regla de "no se borra" no sobrevivió al uso. |
 | Fin de hoja | Infinita, scroll hacia arriba | Hipnótico y sin estado que administrar. |
 | Texto | Mallas 3D de lettra sobre el papel | Nitidez máxima (MSDF en espacio de pantalla) y control total del material vía `buildTextGraph()`. |
 | Tipografía | Courier Prime 400 (SIL OFL) | Limpia. El desgaste lo pone el shader, así nunca se repite. Special Elite trae el grunge dibujado dentro de la fuente y la misma letra sale rota igual siempre. |
@@ -153,3 +153,9 @@ completa, multijugador.
   hasta que el carro llega ahí.
 - **Las tildes entran por `beforeinput`, no por `keydown`.** Son teclas
   muertas: el carácter compuesto no existe en el evento de tecla.
+- **El retroceso ahora borra.** La regla original era que no borrara nunca, y
+  en abstracto sonaba bien, pero usándola se siente rota: apretás retroceso,
+  el carro se mueve y el texto sigue ahí. Backspace borra el carácter
+  anterior; Shift+Backspace mantiene el comportamiento viejo, que es la única
+  forma de tachar imprimiendo encima. Volver a borrar sobre una celda apilada
+  le saca una capa por vez, así que destapa lo que había debajo.

@@ -99,9 +99,34 @@ export const strike = (
   };
 };
 
-/** Walks the carriage back one column. Erases nothing — that is the point. */
+/** Walks the carriage back one column without erasing, so the next strike
+ * lands on top of what is already there. This is how a typewriter crosses a
+ * word out, and it is the only way to build a stacked cell. */
 export const retreat = (state: TypewriterState): TypewriterState =>
   state.column === 0 ? state : { ...state, column: state.column - 1 };
+
+/**
+ * Takes back the character before the carriage.
+ *
+ * A stacked cell gives up one layer per press, so backing over a crossed-out
+ * word uncovers it rather than wiping it. Erasing mid-line leaves the gap it
+ * made: no typewriter pulls the rest of the line left to close it, and neither
+ * does this one.
+ */
+export const erase = (state: TypewriterState): TypewriterState => {
+  if (state.column === 0) return state;
+
+  const line = currentLine(state);
+  const column = state.column - 1;
+  const cell = line[column] ?? "";
+  const next = [...line];
+
+  if (cell.length > 1) next[column] = cell.slice(0, -1);
+  else if (column === line.length - 1) next.length = column;
+  else next[column] = " ";
+
+  return replaceLine(state, next, column);
+};
 
 export const carriageReturn = (state: TypewriterState): TypewriterState => ({
   lines: [...state.lines, EMPTY_LINE],

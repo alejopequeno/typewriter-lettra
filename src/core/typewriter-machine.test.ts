@@ -4,6 +4,7 @@ import {
   carriageReturn,
   createState,
   currentLine,
+  erase,
   isPrintable,
   lineToString,
   retreat,
@@ -46,6 +47,47 @@ describe("strike", () => {
     expect(outcome).toBe("jammed");
     expect(lineToString(currentLine(state))).toBe("abcdefgh");
     expect(state.column).toBe(8);
+  });
+});
+
+describe("erase", () => {
+  it("takes back the character before the carriage", () => {
+    const state = erase(type("sol"));
+
+    expect(lineToString(currentLine(state))).toBe("so");
+    expect(state.column).toBe(2);
+  });
+
+  it("does nothing at the left margin", () => {
+    const state = erase(createState());
+
+    expect(state.column).toBe(0);
+    expect(currentLine(state)).toHaveLength(0);
+  });
+
+  it("peels one strike at a time off a stacked cell", () => {
+    const stacked = strike(retreat(type("sol")), "x", config).state;
+    const state = erase(stacked);
+
+    expect(lineToString(currentLine(state))).toBe("sol");
+    expect(currentLine(state)[2]).toBe("l");
+  });
+
+  it("leaves a blank behind rather than pulling the line left", () => {
+    // No typewriter reflows: erasing mid-line leaves the gap it made.
+    // The carriage is at 2 after the retreat, so this takes the "o".
+    const state = erase(retreat(type("sol")));
+
+    expect(lineToString(currentLine(state))).toBe("s l");
+    expect(state.column).toBe(1);
+  });
+
+  it("does not reach back into the line before it", () => {
+    const state = erase(carriageReturn(type("uno")));
+
+    expect(state.lines).toHaveLength(2);
+    expect(lineToString(state.lines[0])).toBe("uno");
+    expect(state.column).toBe(0);
   });
 });
 
