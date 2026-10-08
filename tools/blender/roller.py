@@ -46,7 +46,7 @@ KNOB_FLUTES = 40
 KNOB_FLUTE_DEPTH = 0.04
 
 BAIL_RADIUS = 0.05 * INCH
-BAIL_DROP = 4.15 * INCH
+BAIL_DROP = 5.4 * INCH
 BAIL_STANDOFF = 0.26 * INCH
 BAIL_LENGTH = SHEET_WIDTH * 1.04
 BAIL_WHEEL_RADIUS = BAIL_RADIUS * 2.1
@@ -77,6 +77,10 @@ GUIDE_HEIGHT = 0.34 * INCH
 GUIDE_THICKNESS = 0.03 * INCH
 GUIDE_STANDOFF = SCALE_STANDOFF + 0.045 * INCH
 GUIDE_NOTCH = 1.25 * CHAR_WIDTH
+
+# The mounts that hold the scale to the frames, one at each end. Without them
+# the rule is a bar hovering in front of the page.
+MOUNT_HEIGHT = 0.26 * INCH
 
 # The frames the platen is bolted between. Mostly off to the sides of the
 # page, where otherwise there is nothing but void.
@@ -327,19 +331,30 @@ def build_frames(collection, mat):
 
 def build_scale(collection, mat):
     """The ruler the typist reads their column off, ticked every character and
-    stepped up every fifth and tenth, so a glance lands on a number."""
+    stepped up every fifth and tenth, so a glance lands on a number.
+
+    It spans the whole carriage and is mounted to the frames at both ends: the
+    paper passes behind it. A rule that only covered the typing area would
+    hang in front of the page with nothing holding it up.
+    """
+
+    frame_front = -ROLLER_RADIUS - FRAME_DEPTH / 2 + 0.3 * INCH + FRAME_DEPTH / 2
 
     def geometry(bm):
-        width = (COLUMNS + 2) * CHAR_WIDTH
         box(
             bm,
-            measure(width, SCALE_HEIGHT, SCALE_THICKNESS),
-            place(
-                column_x(COLUMNS / 2 - 0.5),
-                -SCALE_DROP,
-                SCALE_STANDOFF,
-            ),
+            measure(FRAME_OFFSET * 2 + FRAME_WIDTH, SCALE_HEIGHT, SCALE_THICKNESS),
+            place(0, -SCALE_DROP, SCALE_STANDOFF),
         )
+
+        # The mounts reach back past the paper's edge to the frame behind it.
+        reach = SCALE_STANDOFF - frame_front
+        for side in (-1, 1):
+            box(
+                bm,
+                measure(FRAME_WIDTH, MOUNT_HEIGHT, reach),
+                place(side * FRAME_OFFSET, -SCALE_DROP, SCALE_STANDOFF - reach / 2),
+            )
 
         for column in range(COLUMNS + 1):
             if column % 10 == 0:

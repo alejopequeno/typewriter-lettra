@@ -37,7 +37,6 @@ import {
   SHEET_RISE,
   PRINT_LINE_DROP,
   SHEET_WIDTH,
-  lineBaselineY,
   scrollForLine,
 } from "./sheet-metrics";
 
@@ -220,7 +219,6 @@ export const createStage = async (
   let scroll = 0;
   let target = 0;
   let carriageColumn = 0;
-  let activeLine = 0;
   let previous = performance.now();
   const snap = prefersReducedMotion();
 
@@ -236,11 +234,6 @@ export const createStage = async (
     scrollY.value = scroll;
     page.cull(scroll);
     roller?.setColumn(carriageColumn);
-    // Until the page starts rolling, the line being typed is above the print
-    // line; the scale and guide follow it down rather than waiting there.
-    roller?.setLineOffset(
-      lineBaselineY(activeLine) + scroll - (CURL_TANGENT_Y - PRINT_LINE_DROP),
-    );
     roller?.update(dt);
     post.render();
   });
@@ -249,7 +242,6 @@ export const createStage = async (
     page.sync(state);
     target = scrollForLine(state.lines.length - 1);
     carriageColumn = state.column;
-    activeLine = state.lines.length - 1;
   };
 
   const dispose = (): void => {

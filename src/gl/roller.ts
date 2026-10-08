@@ -20,21 +20,15 @@ const MODEL = "/models/roller.glb";
  * turns whitespace into underscores. The GLB says "Type Guide"; by the time it
  * is in the scene graph it answers to this. */
 const TYPE_GUIDE = "Type_Guide";
-const ALIGNMENT_SCALE = "Alignment_Scale";
 
 /** How hard the guide chases the carriage across a line. Stiff: a typebar
  * lands the instant you press the key, and so should the mark saying where. */
 const COLUMN_STIFFNESS = 38;
-/** Softer down the page, so a carriage return reads as a machine moving
- * rather than the scale teleporting. */
-const LINE_STIFFNESS = 16;
 
 export interface Roller {
   readonly group: Group;
   /** The column the next character will land in. */
   readonly setColumn: (column: number) => void;
-  /** How far the line being typed sits from the assembly's resting height. */
-  readonly setLineOffset: (offset: number) => void;
   readonly update: (dt: number) => void;
 }
 
@@ -53,38 +47,25 @@ export const loadRoller = async (): Promise<Roller> => {
     object.receiveShadow = true;
   });
 
+  // The only part that moves. The scale it rides in is bolted to the frames,
+  // and the paper is what travels past both.
   const guide = group.getObjectByName(TYPE_GUIDE);
-  const scale = group.getObjectByName(ALIGNMENT_SCALE);
-
-  // The scale and the guide travel together: the scale marks the line, the
-  // guide marks the character on it. Everything else is bolted to the frame.
-  const carriage = new Group();
-  if (guide && scale) {
-    carriage.add(scale, guide);
-    group.add(carriage);
-  } else {
-    console.warn(`${MODEL} is missing its carriage parts; the printing point will not move`);
+  if (!guide) {
+    console.warn(`${MODEL} has no "${TYPE_GUIDE}"; the printing point will not move`);
   }
 
-  let columnTarget = columnX(0);
-  let columnAt = columnTarget;
-  let lineTarget = 0;
-  let lineAt = 0;
+  let target = columnX(0);
+  let at = target;
 
   return {
     group,
     setColumn: (column) => {
-      columnTarget = columnX(column);
-    },
-    setLineOffset: (offset) => {
-      lineTarget = offset;
+      target = columnX(column);
     },
     update: (dt) => {
       if (!guide) return;
-      columnAt = chase(columnAt, columnTarget, COLUMN_STIFFNESS, dt);
-      lineAt = chase(lineAt, lineTarget, LINE_STIFFNESS, dt);
-      guide.position.x = columnAt;
-      carriage.position.y = lineAt;
+      at = chase(at, target, COLUMN_STIFFNESS, dt);
+      guide.position.x = at;
     },
   };
 };

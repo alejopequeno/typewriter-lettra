@@ -38,14 +38,12 @@ export const CURL_TANGENT_Y = 0;
  */
 export const ROLLER_RADIUS = 0.85 * INCH;
 
-/** Where the first line of a fresh page lands, as on a sheet just rolled in. */
-export const FIRST_LINE_DROP = 1.15 * INCH;
-
 /**
- * How far below the roller the carriage settles once the page is rolling.
+ * How far below the roller the carriage prints. Fixed: it is where the scale
+ * and the type guide are bolted, and the paper is what moves past them.
  *
  * A real machine prints right at the platen, which would leave barely eight
- * lines of what you wrote on screen before they roll away. Settling the print
+ * lines of what you wrote on screen before they roll away. Setting the print
  * line further down keeps the last twenty-odd lines in view above it, which is
  * the composition the reference photograph has anyway.
  */
@@ -60,18 +58,13 @@ export const SHEET_RISE = ROLLER_RADIUS * Math.PI * 0.55;
 /** Ink sits a hair proud of the paper so it never z-fights with it. */
 export const INK_LIFT = 0.0004;
 
-/** Document-space baseline of a line, before scrolling. Line 0 sits where a
- * fresh sheet starts; each line after it is one line-step further down. */
+/** Document-space baseline of a line, before scrolling. Line 0 sits at the
+ * print line; each line after it is one line-step further down. */
 export const lineBaselineY = (lineNumber: number): number =>
-  CURL_TANGENT_Y - FIRST_LINE_DROP - lineNumber * LINE_STEP;
+  CURL_TANGENT_Y - PRINT_LINE_DROP - lineNumber * LINE_STEP;
 
-/**
- * Scroll offset that puts `lineNumber` where the typist should be looking.
- *
- * On a fresh page the platen does not move at all: the typing works its way
- * down from the top, the way it does on a sheet you have just rolled in. Only
- * once the carriage reaches the print line does the page start travelling,
- * and from there the active line stays put while everything above it climbs.
- */
+/** Scroll offset that brings `lineNumber` up to the print line. Every carriage
+ * return rolls the page one step, from the first line on — the hardware never
+ * moves, the paper does. */
 export const scrollForLine = (lineNumber: number): number =>
-  Math.max(0, lineNumber * LINE_STEP - (PRINT_LINE_DROP - FIRST_LINE_DROP));
+  lineNumber * LINE_STEP;
