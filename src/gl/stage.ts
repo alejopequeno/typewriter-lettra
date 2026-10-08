@@ -9,6 +9,7 @@ import { loadFont, loadFontTexture } from "lettra/three";
 import { uniform } from "three/tsl";
 import {
   EquirectangularReflectionMapping,
+  Group,
   Mesh,
   NeutralToneMapping,
   Object3D,
@@ -62,6 +63,14 @@ const FRAMED_HEIGHT = 6.1 * INCH;
  * is lit ten times too bright does the opposite: it lifts the ink to brown. */
 const EXPOSURE = 1;
 
+/** How far the machine leans back, in radians. A page in a typewriter is never
+ * a plane square to the viewer, and neither is a photograph of one. */
+const MACHINE_TILT = 0.2;
+/** How far the camera stands left of centre, in world units. Enough that the
+ * frame stops reading as a technical elevation, little enough that the
+ * right-hand margin does not compress. */
+const CAMERA_OFFSET_X = -0.17;
+
 /** How quickly the platen catches up to a new line. Lower is heavier. */
 const SCROLL_STIFFNESS = 14;
 const MAX_FRAME_SECONDS = 1 / 20;
@@ -105,6 +114,12 @@ export const createStage = async (
   const scene = new Scene();
   const camera = new PerspectiveCamera(FIELD_OF_VIEW, 1, 0.01, 50);
 
+  // Sheet, ink and hardware all hang off this, so the lean applies to the
+  // machine as a whole and the lamp stays put in the room.
+  const machine = new Group();
+  machine.rotation.x = MACHINE_TILT;
+  scene.add(machine);
+
   const scrollY = uniform(0);
 
   const [font, atlas] = await Promise.all([
@@ -126,7 +141,7 @@ export const createStage = async (
   sheet.castShadow = true;
   sheet.receiveShadow = true;
   sheet.frustumCulled = false;
-  scene.add(sheet);
+  machine.add(sheet);
 
   scene.add(createBackdrop());
 
@@ -136,7 +151,7 @@ export const createStage = async (
   void loadRoller()
     .then((loaded) => {
       roller = loaded;
-      scene.add(loaded.group);
+      machine.add(loaded.group);
     })
     .catch((error: unknown) => console.error("the platen is missing", error));
 
@@ -144,7 +159,7 @@ export const createStage = async (
     font,
     material: createInkMaterial({ map: atlas, scrollY }),
   });
-  scene.add(page.group);
+  machine.add(page.group);
 
   // A desk lamp, not a sun: close, narrow and with real inverse-square decay,
   // so the page is brightest where the typist is working and falls away into
@@ -181,7 +196,7 @@ export const createStage = async (
 
     camera.aspect = width / height;
     camera.position.set(
-      0,
+      CAMERA_OFFSET_X,
       FRAMING_CENTRE_Y + 0.75 * INCH,
       framingDistance(camera.aspect),
     );

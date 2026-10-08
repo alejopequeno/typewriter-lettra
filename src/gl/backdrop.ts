@@ -15,10 +15,10 @@ import { CURL_TANGENT_Y, INCH } from "./sheet-metrics";
 const WIDTH = 7;
 const HEIGHT = 5;
 /** Far enough back that it is well outside the focal plane. */
-const DISTANCE = 1.15;
+const DISTANCE = 0.95;
 
-const WALL_LIGHT = "#211b15";
-const WALL_DARK = "#0a0806";
+const WALL_LIGHT = "#2e261d";
+const WALL_DARK = "#100c08";
 
 /** Just enough to read as a surface. Any more and the depth of field
  * smears it into blobs that draw the eye off the page. */

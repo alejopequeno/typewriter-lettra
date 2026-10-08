@@ -78,6 +78,14 @@ GUIDE_THICKNESS = 0.03 * INCH
 GUIDE_STANDOFF = SCALE_STANDOFF + 0.045 * INCH
 GUIDE_NOTCH = 1.25 * CHAR_WIDTH
 
+# The frames the platen is bolted between. Mostly off to the sides of the
+# page, where otherwise there is nothing but void.
+FRAME_WIDTH = 0.55 * INCH
+FRAME_DEPTH = 2.1 * INCH
+FRAME_TOP = 1.1 * INCH
+FRAME_BOTTOM = -8.5 * INCH
+FRAME_OFFSET = SHEET_WIDTH * 0.595
+
 AXIS_Y = 0.0
 AXIS_Z = -ROLLER_RADIUS
 BAIL_Y = -BAIL_DROP
@@ -283,10 +291,38 @@ def build():
             dark_steel,
         )
 
+    build_frames(collection, rubber)
     build_scale(collection, steel)
     build_type_guide(collection, dark_steel)
 
     return collection
+
+
+def build_frames(collection, mat):
+    """The carriage's side frames.
+
+    They carry no detail because they are never in focus: their whole job is
+    to be something solid either side of the page, so the sheet reads as held
+    by a machine instead of floating in front of a wall.
+    """
+    height = FRAME_TOP - FRAME_BOTTOM
+    centre_y = (FRAME_TOP + FRAME_BOTTOM) / 2
+
+    for side, tag in ((-1, "L"), (1, "R")):
+        add_mesh(
+            collection,
+            f"Carriage Frame {tag}",
+            lambda bm, s=side: box(
+                bm,
+                measure(FRAME_WIDTH, height, FRAME_DEPTH),
+                place(
+                    s * FRAME_OFFSET,
+                    centre_y,
+                    -ROLLER_RADIUS - FRAME_DEPTH / 2 + 0.3 * INCH,
+                ),
+            ),
+            mat,
+        )
 
 
 def build_scale(collection, mat):
