@@ -94,9 +94,19 @@ export const createSign = ({
     settle();
   };
 
+  /**
+   * Asking for a line that is already on the page keeps it there: the hold
+   * starts over, nothing dissolves and re-arrives. Caught mid-departure it
+   * comes straight back whole.
+   */
+  const show = (): void => {
+    if (phase === "away") enter("arriving");
+    else if (phase === "holding" || phase === "leaving") enter("holding");
+  };
+
   return {
     mesh: handle.mesh,
-    show: () => enter("arriving"),
+    show,
     // Idempotent: a key every 150 ms must not restart a 320 ms wipe, or the
     // line snaps back to full and dissolves again on every keystroke.
     hide: () => {
