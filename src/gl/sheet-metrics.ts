@@ -52,8 +52,9 @@ export const PRINT_LINE_DROP = 3.4 * INCH;
 /** How far the sheet extends past the print line before the camera loses it. */
 export const SHEET_DROP = 9 * INCH;
 
-/** How far the sheet wraps up and over the roller. */
-export const SHEET_RISE = ROLLER_RADIUS * Math.PI * 0.55;
+/** How far the sheet wraps up and over the roller: past the top and down the
+ * back, so from above the page never just stops on the rubber. */
+export const SHEET_RISE = ROLLER_RADIUS * Math.PI * 0.92;
 
 /** Ink sits a hair proud of the paper so it never z-fights with it. */
 export const INK_LIFT = 0.0004;

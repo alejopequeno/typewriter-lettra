@@ -18,8 +18,9 @@ const BOW_DEPTH = 0.8 * INCH * 0.045;
 /** How far down the page the bow takes to reach full depth. */
 const BOW_ONSET = 2.6 * INCH;
 
-/** Flat distance from the tangent line, as an angle around the platen. */
-const wrapAngle = (position: Vec3Node): FloatNode =>
+/** Flat distance from the tangent line, as an angle around the platen. 0 on
+ * the flat part of the page; grows as the sheet goes over the roller. */
+export const wrapAngle = (position: Vec3Node): FloatNode =>
   max(position.y.sub(float(CURL_TANGENT_Y)), 0).div(float(ROLLER_RADIUS));
 
 /** 0 where the bail still holds the page flat, 1 where it hangs free. */
