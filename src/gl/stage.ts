@@ -33,7 +33,6 @@ import { createBackdrop } from "./backdrop";
 import { createSign } from "./sign";
 import { createSpring } from "./spring";
 import {
-  BAIL_DROP,
   CHAR_WIDTH,
   CURL_TANGENT_Y,
   INK_LIFT,
@@ -42,6 +41,7 @@ import {
   SHEET_DROP,
   SHEET_RISE,
   PRINT_LINE_DROP,
+  SCALE_DROP,
   SHEET_WIDTH,
   scrollForLine,
 } from "./sheet-metrics";
@@ -91,15 +91,17 @@ const RECOIL = { stiffness: 2200, damping: 70 };
 /** Everything the typist reads is typed by the machine, in its own face.
  * The signs sit above the bowed page by at least the bow's full depth. */
 const SIGN_LIFT = INK_LIFT + 0.0045;
-const SIGN_INK = "#6f6557";
+const SIGN_INK = "#5a5146";
 
 /** Where the first line will go, until the first key is struck. */
 const HINT_TEXT = "empezá a escribir";
 
-/** The machine's answer to a key it does not have, under the bail. */
+/** The machine's answer to a key it does not have. Between the scale and
+ * the bail: below the bail it sat at the very bottom of a short window, in
+ * the darkest band of the vignette, and went unseen. */
 const REFUSAL_TEXT = "No se puede borrar. Es una máquina de escribir.";
 const REFUSAL_SCALE = 0.82;
-const REFUSAL_DROP = BAIL_DROP + 1.05 * INCH;
+const REFUSAL_DROP = SCALE_DROP + 0.78 * INCH;
 
 /** How quickly the platen catches up to a new line. Lower is heavier. */
 const SCROLL_STIFFNESS = 14;

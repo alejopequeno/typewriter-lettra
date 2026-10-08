@@ -134,16 +134,20 @@ export const createTypewriterAudio = (): TypewriterAudio => {
 
   const bell = (): void => {
     const at = context.currentTime;
-    // Two inharmonic partials: a struck bell, not an organ.
-    tone({ at, duration: 1.3, gain: 0.16, frequency: around(2090, 0.01) });
-    tone({ at, duration: 0.9, gain: 0.08, frequency: around(3160, 0.01) });
+    // The margin bell: a small brass cup struck by a hammer. Three
+    // inharmonic partials with the hum lowest and longest, so it rings like
+    // a bell rather than chiming like a coin.
+    tone({ at, duration: 1.9, gain: 0.14, frequency: around(1180, 0.01) });
+    tone({ at, duration: 1.1, gain: 0.07, frequency: around(2730, 0.01) });
+    tone({ at, duration: 0.5, gain: 0.04, frequency: around(4310, 0.01) });
+    // The hammer.
     burst({
       at,
-      duration: 0.02,
-      gain: 0.12,
+      duration: 0.018,
+      gain: 0.16,
       type: "bandpass",
-      frequency: 5200,
-      q: 1.2,
+      frequency: 2600,
+      q: 1,
     });
   };
 
