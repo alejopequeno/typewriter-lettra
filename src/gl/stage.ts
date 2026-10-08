@@ -70,12 +70,23 @@ const MACHINE_TILT = 0.2;
  * right-hand margin does not compress. */
 const CAMERA_OFFSET_X = -0.17;
 
+/** How far the camera drifts with the pointer, in world units at full
+ * deflection. A lean of the head, not a dolly: enough that the platen and the
+ * scale shift against the page, little enough that the text stays readable. */
+const PARALLAX_X = 0.07;
+const PARALLAX_Y = 0.035;
+/** The lean lags the pointer; a camera that snaps to the hand feels like a
+ * cursor, one that drifts after it feels like weight. */
+const PARALLAX_STIFFNESS = 5;
+
 /** How quickly the platen catches up to a new line. Lower is heavier. */
 const SCROLL_STIFFNESS = 14;
 const MAX_FRAME_SECONDS = 1 / 20;
 
 export interface Stage {
   readonly sync: (state: TypewriterState) => void;
+  /** Where the pointer is, each axis -1 … 1 across the viewport. */
+  readonly look: (x: number, y: number) => void;
   readonly resize: () => void;
   readonly dispose: () => void;
 }
@@ -188,18 +199,29 @@ export const createStage = async (
 
   scene.add(aim, lamp, fill);
 
+  let distance = 1;
+  const lean = { x: 0, y: 0 };
+  const leanTarget = { x: 0, y: 0 };
+
+  const placeCamera = (): void => {
+    camera.position.set(
+      CAMERA_OFFSET_X + lean.x * PARALLAX_X,
+      FRAMING_CENTRE_Y + 0.75 * INCH + lean.y * PARALLAX_Y,
+      distance,
+    );
+    // Looking slightly against the lean makes the page swing the other way,
+    // which is what sells it as a head moving rather than the world.
+    camera.lookAt(lean.x * -PARALLAX_X * 0.4, FRAMING_CENTRE_Y - lean.y * PARALLAX_Y * 0.4, 0);
+  };
+
   const resize = (): void => {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     if (width === 0 || height === 0) return;
 
     camera.aspect = width / height;
-    camera.position.set(
-      CAMERA_OFFSET_X,
-      FRAMING_CENTRE_Y + 0.75 * INCH,
-      framingDistance(camera.aspect),
-    );
-    camera.lookAt(0, FRAMING_CENTRE_Y, 0);
+    distance = framingDistance(camera.aspect);
+    placeCamera();
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
 
@@ -233,6 +255,13 @@ export const createStage = async (
 
     scrollY.value = scroll;
     page.cull(scroll);
+
+    if (!snap) {
+      const k = 1 - Math.exp(-PARALLAX_STIFFNESS * dt);
+      lean.x += (leanTarget.x - lean.x) * k;
+      lean.y += (leanTarget.y - lean.y) * k;
+      placeCamera();
+    }
     roller?.setColumn(column);
     roller?.update(dt);
     post.render();
@@ -252,5 +281,10 @@ export const createStage = async (
     renderer.dispose();
   };
 
-  return { sync, resize, dispose };
+  const look = (x: number, y: number): void => {
+    leanTarget.x = Math.max(-1, Math.min(1, x));
+    leanTarget.y = Math.max(-1, Math.min(1, y));
+  };
+
+  return { sync, look, resize, dispose };
 };

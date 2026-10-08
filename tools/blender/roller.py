@@ -71,12 +71,28 @@ TICK_SHORT = 0.055 * INCH
 TICK_MEDIUM = 0.09 * INCH
 TICK_LONG = 0.13 * INCH
 
-# The fork that marks the exact printing point.
-GUIDE_WIDTH = 3.1 * CHAR_WIDTH
-GUIDE_HEIGHT = 0.34 * INCH
-GUIDE_THICKNESS = 0.03 * INCH
+# The fork that marks the exact printing point. It straddles the cell the next
+# character lands in, on the print line itself — the letter is struck inside
+# it — and a stem runs down to the slider it rides on the scale.
+GUIDE_NOTCH = 1.2 * CHAR_WIDTH
+GUIDE_CHEEK = 0.42 * CHAR_WIDTH
+GUIDE_WIDTH = GUIDE_NOTCH + GUIDE_CHEEK * 2
+GUIDE_HEIGHT = 0.2 * INCH
+GUIDE_THICKNESS = 0.025 * INCH
 GUIDE_STANDOFF = SCALE_STANDOFF + 0.045 * INCH
-GUIDE_NOTCH = 1.25 * CHAR_WIDTH
+GUIDE_BELOW_BASELINE = 0.06 * INCH
+GUIDE_STEM_WIDTH = 0.5 * CHAR_WIDTH
+GUIDE_SLIDER_WIDTH = 1.5 * CHAR_WIDTH
+GUIDE_SLIDER_HEIGHT = SCALE_HEIGHT * 1.35
+
+# The line-space lever on the left end of the carriage, and the gold
+# pinstripes along the frames: what every machine of the period wore.
+LEVER_LENGTH = 1.1 * INCH
+LEVER_WIDTH = 0.2 * INCH
+LEVER_THICKNESS = 0.035 * INCH
+LEVER_TIP_RADIUS = 0.09 * INCH
+PINSTRIPE_WIDTH = 0.018 * INCH
+PINSTRIPE_INSET = 0.09 * INCH
 
 # What a scale carries besides ticks: a number every ten columns, and the two
 # margin stops you slide along it.
@@ -424,6 +440,7 @@ def build():
     build_frames(collection, enamel)
     build_scale(collection, steel, brass)
     build_type_guide(collection, dark_steel)
+    build_lever_and_stripes(collection, enamel, brass)
 
     return collection
 
@@ -534,38 +551,94 @@ def build_type_guide(collection, mat):
     Built around x = 0 so the web scene can slide it to the carriage's column
     by setting nothing but `position.x`.
     """
+    baseline = -PRINT_LINE_DROP
+    cheek_centre_y = baseline - GUIDE_BELOW_BASELINE + GUIDE_HEIGHT / 2
+    scale_top = -SCALE_DROP + SCALE_HEIGHT / 2
 
     def geometry(bm):
-        cheek = (GUIDE_WIDTH - GUIDE_NOTCH) / 2
-        centre = GUIDE_WIDTH / 2 - cheek / 2
-
+        # The two cheeks either side of the cell the next letter lands in.
         for side in (-1, 1):
-            # The two cheeks either side of the character being struck.
             box(
                 bm,
-                measure(cheek, GUIDE_HEIGHT, GUIDE_THICKNESS),
-                place(side * centre, -SCALE_DROP, GUIDE_STANDOFF),
-            )
-            # Each one tapers to a point at the top, which is what actually
-            # reads as "here" at a glance.
-            box(
-                bm,
-                measure(cheek * 0.42, GUIDE_HEIGHT * 0.55, GUIDE_THICKNESS),
-                place(
-                    side * (GUIDE_WIDTH / 2 - cheek * 0.21),
-                    -SCALE_DROP + GUIDE_HEIGHT * 0.72,
-                    GUIDE_STANDOFF,
-                ),
+                measure(GUIDE_CHEEK, GUIDE_HEIGHT, GUIDE_THICKNESS),
+                place(side * (GUIDE_NOTCH + GUIDE_CHEEK) / 2, cheek_centre_y, GUIDE_STANDOFF),
             )
 
-        # The bridge joining them behind the scale.
+        # The bar under the baseline that joins them.
         box(
             bm,
-            measure(GUIDE_WIDTH, GUIDE_HEIGHT * 0.3, GUIDE_THICKNESS),
-            place(0, -SCALE_DROP - GUIDE_HEIGHT * 0.42, GUIDE_STANDOFF),
+            measure(GUIDE_WIDTH, GUIDE_THICKNESS * 1.6, GUIDE_THICKNESS),
+            place(0, baseline - GUIDE_BELOW_BASELINE, GUIDE_STANDOFF),
+        )
+
+        # The stem down to the scale, and the slider that rides it.
+        stem_top = baseline - GUIDE_BELOW_BASELINE
+        stem_bottom = scale_top
+        box(
+            bm,
+            measure(GUIDE_STEM_WIDTH, stem_top - stem_bottom, GUIDE_THICKNESS),
+            place(0, (stem_top + stem_bottom) / 2, GUIDE_STANDOFF),
+        )
+        box(
+            bm,
+            measure(GUIDE_SLIDER_WIDTH, GUIDE_SLIDER_HEIGHT, GUIDE_THICKNESS * 1.4),
+            place(0, -SCALE_DROP, GUIDE_STANDOFF),
         )
 
     add_mesh(collection, "Type Guide", geometry, mat)
+
+
+def build_lever_and_stripes(collection, enamel, brass):
+    """The line-space lever at the left of the carriage, and the gold
+    pinstripes on the frames."""
+    base = place(-FRAME_OFFSET - FRAME_WIDTH * 0.2, 0.25 * INCH, 0.08 * INCH)
+    # Pointing forward and up at the typist: tilt about x in Blender's frame.
+    tilt = Matrix.Rotation(math.radians(-38), 4, "X")
+    along = tilt @ Vector((0, -1, 0))  # the lever's own forward
+    centre = base + along * (LEVER_LENGTH / 2)
+
+    def lever(bm):
+        bmesh.ops.create_cube(
+            bm,
+            size=1.0,
+            matrix=Matrix.Translation(centre)
+            @ tilt
+            @ Matrix.Diagonal((LEVER_WIDTH, LEVER_LENGTH, LEVER_THICKNESS, 1.0)),
+        )
+
+    add_mesh(collection, "Line Space Lever", lever, enamel)
+
+    tip = base + along * LEVER_LENGTH
+
+    def knob(bm):
+        bmesh.ops.create_cone(
+            bm, cap_ends=True, cap_tris=False, segments=24,
+            radius1=LEVER_TIP_RADIUS, radius2=LEVER_TIP_RADIUS,
+            depth=LEVER_THICKNESS * 2.4,
+            matrix=Matrix.Translation(tip) @ tilt,
+        )
+        smooth_sides(bm)
+
+    add_mesh(collection, "Line Space Lever Tip", knob, brass)
+
+    frame_front = -ROLLER_RADIUS + 0.3 * INCH
+    height = (FRAME_TOP - FRAME_BOTTOM) * 0.92
+    centre_y = (FRAME_TOP + FRAME_BOTTOM) / 2
+
+    def stripes(bm):
+        for side in (-1, 1):
+            for edge in (-1, 1):
+                box(
+                    bm,
+                    measure(PINSTRIPE_WIDTH, height, PINSTRIPE_WIDTH * 0.6),
+                    place(
+                        side * FRAME_OFFSET + edge * (FRAME_WIDTH / 2 - PINSTRIPE_INSET),
+                        centre_y,
+                        frame_front + PINSTRIPE_WIDTH * 0.3,
+                    ),
+                )
+
+    add_mesh(collection, "Pinstripes", stripes, brass)
 
 
 def export(collection, path):

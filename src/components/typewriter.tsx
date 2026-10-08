@@ -19,6 +19,9 @@ import type { Stage } from "@/gl/stage";
 
 type Status = "loading" | "ready" | "unsupported";
 
+const REFUSAL = "No se puede borrar. Es una máquina de escribir.";
+const REFUSAL_MS = 2600;
+
 /** Keys that mean "the browser is doing something else". */
 const isShortcut = (event: React.KeyboardEvent): boolean =>
   event.metaKey || event.ctrlKey || event.altKey;
@@ -34,6 +37,8 @@ export const Typewriter = () => {
   const [focused, setFocused] = useState(false);
   const [started, setStarted] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const refusalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -76,9 +81,23 @@ export const Typewriter = () => {
     () => () => {
       audioRef.current?.dispose();
       audioRef.current = null;
+      if (refusalTimer.current) clearTimeout(refusalTimer.current);
     },
     [],
   );
+
+  /** The camera leans with the pointer. Purely additive: nothing here is
+   * reachable only by mouse, and keyboard users get the resting view. */
+  const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+    const y = ((event.clientY - bounds.top) / bounds.height) * -2 + 1;
+    stageRef.current?.look(x, y);
+  }, []);
+
+  const onPointerLeave = useCallback(() => {
+    stageRef.current?.look(0, 0);
+  }, []);
 
   const audio = useCallback((): TypewriterAudio => {
     audioRef.current ??= createTypewriterAudio();
@@ -140,8 +159,15 @@ export const Typewriter = () => {
       if (event.key === "Backspace") {
         // There is no key on this machine that moves the carriage back. The
         // default is still swallowed so the textarea stays in step with the
-        // page.
+        // page, and the typist is told why nothing happened.
         event.preventDefault();
+        const machine = audio();
+        void machine.resume();
+        machine.refuse();
+        setRefusal(REFUSAL);
+        setAnnouncement(REFUSAL);
+        if (refusalTimer.current) clearTimeout(refusalTimer.current);
+        refusalTimer.current = setTimeout(() => setRefusal(null), REFUSAL_MS);
         return;
       }
 
@@ -180,7 +206,12 @@ export const Typewriter = () => {
   }, [press]);
 
   return (
-    <div className="typewriter" data-focused={focused}>
+    <div
+      className="typewriter"
+      data-focused={focused}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
+    >
       <canvas ref={canvasRef} className="typewriter__canvas" />
 
       <label className="sr-only" htmlFor="sheet">
@@ -211,7 +242,13 @@ export const Typewriter = () => {
         {announcement}
       </p>
 
-      {status === "ready" && !started && (
+      {refusal !== null && (
+        <p className="typewriter__refusal" aria-hidden="true">
+          {refusal}
+        </p>
+      )}
+
+      {status === "ready" && !started && refusal === null && (
         <p className="typewriter__hint" aria-hidden="true">
           empezá a escribir
         </p>

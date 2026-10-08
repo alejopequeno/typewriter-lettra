@@ -13,6 +13,8 @@ export interface TypewriterAudio {
   readonly bell: () => void;
   /** The carriage being thrown back to the left margin. */
   readonly carriageReturn: () => void;
+  /** A key that goes nowhere: the dull knock of a locked mechanism. */
+  readonly refuse: () => void;
   /** Browsers hold audio until a gesture; call this from the first keystroke. */
   readonly resume: () => Promise<void>;
   readonly dispose: () => void;
@@ -171,10 +173,24 @@ export const createTypewriterAudio = (): TypewriterAudio => {
     tone({ at: at + 0.2, duration: 0.12, gain: 0.14, frequency: 140 });
   };
 
+  const refuse = (): void => {
+    const at = context.currentTime;
+    burst({
+      at,
+      duration: 0.03,
+      gain: 0.22,
+      type: "lowpass",
+      frequency: 700,
+      q: 0.8,
+    });
+    tone({ at, duration: 0.09, gain: 0.12, frequency: around(110, 0.08) });
+  };
+
   return {
     strike,
     bell,
     carriageReturn,
+    refuse,
     resume: () => context.resume(),
     dispose: () => void context.close(),
   };

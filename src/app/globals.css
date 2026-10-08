@@ -54,7 +54,8 @@ body {
 }
 
 .typewriter__hint,
-.typewriter__notice {
+.typewriter__notice,
+.typewriter__refusal {
   position: absolute;
   bottom: 2.5rem;
   left: 0;
@@ -72,6 +73,31 @@ body {
   animation: breathe 3.4s ease-in-out infinite;
 }
 
+.typewriter__refusal {
+  text-transform: none;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  color: #8a8070;
+  animation: refusal 2.6s ease-out forwards;
+}
+
+@keyframes refusal {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3rem);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {
@@ -86,6 +112,11 @@ body {
   .typewriter__hint {
     animation: none;
     opacity: 0.6;
+  }
+
+  .typewriter__refusal {
+    animation: none;
+    opacity: 1;
   }
 }
 
