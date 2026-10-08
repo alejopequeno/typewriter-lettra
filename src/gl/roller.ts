@@ -16,6 +16,7 @@ import { createHardwareMaterials } from "./materials/hardware-materials";
 import {
   CURL_TANGENT_Y,
   GUIDE_STANDOFF,
+  ROLLER_RADIUS,
   SCALE_DROP,
   columnX,
 } from "./sheet-metrics";
@@ -27,6 +28,16 @@ const MODEL = "/models/roller.glb";
  * turns whitespace into underscores. The GLB says "Type Guide"; by the time it
  * is in the scene graph it answers to this. */
 const TYPE_GUIDE = "Type_Guide";
+
+/** Everything bolted to the platen shaft: it all turns as one when the page
+ * advances. Names as they come out of GLTFLoader's sanitizer. */
+const SHAFT_PARTS = /^(Platen|Knob_|Flange_Screw|Ratchet|Collar)/;
+
+/** The shaft's axis, in the scene's units: the sheet's tangent line, one
+ * roller radius behind the page. Must match `AXIS_Y` / `AXIS_Z` in
+ * `tools/blender/roller.py`. */
+const SHAFT_Y = CURL_TANGENT_Y;
+const SHAFT_Z = -ROLLER_RADIUS;
 
 /** How hard the guide chases the carriage across a line. Stiff: a typebar
  * lands the instant you press the key, and so should the mark saying where. */
@@ -45,6 +56,9 @@ export interface Roller {
   readonly group: Group;
   /** The column the next character will land in. */
   readonly setColumn: (column: number) => void;
+  /** How far the paper has travelled up, in world units. The platen turns by
+   * exactly that much arc, so the knobs and the ratchet roll with the page. */
+  readonly setTravel: (travel: number) => void;
   /** A typebar has just hit the page under the guide. */
   readonly strike: () => void;
   readonly update: (dt: number) => void;
@@ -94,6 +108,17 @@ export const loadRoller = async (): Promise<Roller> => {
     group.add(pivot);
   }
 
+  // The GLB bakes every vertex in place with the origin at zero, so the shaft
+  // parts hang off a pivot on the axis, shifted back by the same amount.
+  const shaft = new Group();
+  shaft.position.set(0, SHAFT_Y, SHAFT_Z);
+  const shaftParts = group.children.filter((child) => SHAFT_PARTS.test(child.name));
+  for (const part of shaftParts) {
+    part.position.set(0, -SHAFT_Y, -SHAFT_Z);
+    shaft.add(part);
+  }
+  group.add(shaft);
+
   let target = columnX(0);
   let at = target;
   const jab = createSpring(JAB);
@@ -102,6 +127,10 @@ export const loadRoller = async (): Promise<Roller> => {
     group,
     setColumn: (column) => {
       target = columnX(column);
+    },
+    setTravel: (travel) => {
+      // The front of the platen moving up is a turn about -x.
+      shaft.rotation.x = -travel / ROLLER_RADIUS;
     },
     strike: () => {
       jab.kick(JAB_VELOCITY);

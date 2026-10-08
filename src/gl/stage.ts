@@ -340,6 +340,7 @@ export const createStage = async (
       placeCamera();
     }
     roller?.setColumn(column);
+    roller?.setTravel(scroll);
     roller?.update(dt);
     post.render();
   });
@@ -371,9 +372,11 @@ export const createStage = async (
     refusal.show();
   };
 
+  // The head moves against the hand: pointer right, camera left, so the
+  // machine slides the way the pointer goes.
   const look = (x: number, y: number): void => {
-    leanTarget.x = Math.max(-1, Math.min(1, x));
-    leanTarget.y = Math.max(-1, Math.min(1, y));
+    leanTarget.x = -Math.max(-1, Math.min(1, x));
+    leanTarget.y = -Math.max(-1, Math.min(1, y));
   };
 
   return { sync, strike, refuse, look, resize, dispose };

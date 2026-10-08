@@ -94,6 +94,16 @@ export const Typewriter = () => {
     [],
   );
 
+  // The whole screen is the page: a click anywhere must not take the keys
+  // away from the hidden field that receives them.
+  const onPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      keysRef.current?.focus({ preventScroll: true });
+    },
+    [],
+  );
+
   const onPointerLeave = useCallback(() => {
     stageRef.current?.look(0, 0);
   }, []);
@@ -206,6 +216,7 @@ export const Typewriter = () => {
       className="typewriter"
       data-focused={focused}
       onPointerMove={onPointerMove}
+      onPointerDown={onPointerDown}
       onPointerLeave={onPointerLeave}
     >
       <canvas ref={canvasRef} className="typewriter__canvas" />
