@@ -358,6 +358,7 @@ export const createStage = async (
 
     scrollY.value = scroll;
     page.cull(scroll);
+    letterhead.cull(scroll);
     paper.position.z = recoil.update(dt);
     hint.update(dt);
     refusal.update(dt);

@@ -10,6 +10,7 @@ import {
   max,
   mix,
   positionLocal,
+  step,
   texture,
   transformNormalToView,
   uv,
@@ -28,7 +29,13 @@ import { dented, inkOnCurl } from "./ink-surface";
 import { curlNormal } from "./paper-curl";
 import { paperFibre } from "./paper-fiber";
 import { paperTone } from "./paper-tone";
-import { INCH, INK_LIFT, lineBaselineY } from "./sheet-metrics";
+import {
+  CURL_TANGENT_Y,
+  INCH,
+  INK_LIFT,
+  SHEET_RISE,
+  lineBaselineY,
+} from "./sheet-metrics";
 import type { FloatNode } from "./tsl-types";
 
 /** The OpenAI mark, from simple-icons (CC0), on a 24 × 24 grid. */
@@ -47,6 +54,11 @@ const RASTER = 1024;
 const MARK_FILL = 0.84;
 /** Blur that turns the hard mark into the soft height field of its dent. */
 const DENT_BLUR_PX = 10;
+
+/** Where the sheet itself ends, past the roller. Ink beyond it has no paper
+ * under it; left alone it would keep following the curl all the way round
+ * and come back out over the front. */
+const SHEET_END_Y = CURL_TANGENT_Y + SHEET_RISE;
 
 /** Enough subdivisions for the quad to follow the curl over the roller. */
 const SEGMENTS = 24;
@@ -93,6 +105,8 @@ export interface LetterheadOptions {
 
 export interface Letterhead {
   readonly mesh: Mesh;
+  /** Stops drawing the mark once the sheet has carried it out of sight. */
+  readonly cull: (scrollY: number) => void;
   readonly dispose: () => void;
 }
 
@@ -116,8 +130,14 @@ export const createLetterhead = ({ scrollY }: LetterheadOptions): Letterhead => 
   const travelling = vec2(positionLocal.x, positionLocal.y);
 
   const density = paperFibre(travelling).mul(FIBRE_BITE).add(1).clamp(0, 1);
-  const inkAlpha = coverage.mul(density);
-  const rim = height.mul(coverage.oneMinus());
+  // 1 while there is still paper under this point, 0 once it has gone round.
+  // Read from the UV, not positionLocal: once positionNode is set, three hands
+  // the fragment stage the curled position, which no longer says how far up
+  // the sheet this point is.
+  const sheetY = uv().y.sub(0.5).mul(MARK_SIZE).add(centreY).add(scrollY);
+  const onSheet = step(sheetY, SHEET_END_Y);
+  const inkAlpha = coverage.mul(density).mul(onSheet);
+  const rim = height.mul(coverage.oneMinus()).mul(onSheet);
   const page = paperTone(travelling, onPaper.y);
 
   material.transparent = true;
@@ -137,8 +157,13 @@ export const createLetterhead = ({ scrollY }: LetterheadOptions): Letterhead => 
   // Scrolled by the material, so CPU-side bounds never match where it draws.
   mesh.frustumCulled = false;
 
+  const bottomY = centreY - MARK_SIZE / 2;
+
   return {
     mesh,
+    cull: (scrollY) => {
+      mesh.visible = bottomY + scrollY <= SHEET_END_Y;
+    },
     dispose: () => {
       geometry.dispose();
       material.dispose();
