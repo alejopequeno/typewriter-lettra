@@ -37,7 +37,6 @@ export const Typewriter = () => {
 
   const [status, setStatus] = useState<Status>("loading");
   const [progress, setProgress] = useState(0);
-  const [focused, setFocused] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
@@ -227,7 +226,6 @@ export const Typewriter = () => {
   return (
     <div
       className="typewriter"
-      data-focused={focused}
       data-status={status}
       onPointerMove={onPointerMove}
       onPointerDown={onPointerDown}
@@ -251,8 +249,6 @@ export const Typewriter = () => {
         aria-describedby="sheet-help"
         defaultValue=""
         onKeyDown={onKeyDown}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
       />
 
       <p id="sheet-help" className="sr-only">

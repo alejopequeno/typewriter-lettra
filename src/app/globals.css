@@ -2,7 +2,6 @@
 
 :root {
   --room: #17150f;
-  --focus-ring: #d8c89a;
 }
 
 html,
@@ -44,24 +43,15 @@ body {
   overflow: hidden;
 }
 
-/* No frame around the screen: while the field has focus the type guide on the
-   page is the caret. Losing focus (Tab away) dims the scene instead, so the
-   state is never invisible. */
 /* Hidden until every mesh and shader is in, then one fade for the whole
    machine. The duration matches REVEAL_MS in src/gl/stage.ts. */
 .typewriter__canvas {
   opacity: 0;
-  transition:
-    opacity 600ms ease-out,
-    filter 240ms ease-out;
+  transition: opacity 600ms ease-out;
 }
 
 .typewriter[data-status="ready"] .typewriter__canvas {
   opacity: 1;
-}
-
-.typewriter:not(:has(.typewriter__keys:focus)) .typewriter__canvas {
-  filter: brightness(0.55) saturate(0.7);
 }
 
 .machine-loader {
