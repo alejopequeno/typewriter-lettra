@@ -15,20 +15,12 @@
 
 import {
   Fn,
-  abs,
   attribute,
   color,
-  cross,
-  dFdx,
-  dFdy,
-  dot,
   fract,
   max,
   mix,
-  normalize,
   positionLocal,
-  positionView,
-  sign,
   sin,
   smoothstep,
   transformNormalToView,
@@ -38,11 +30,12 @@ import {
 import { MeshStandardNodeMaterial, type Texture } from "three/webgpu";
 import { buildTextGraph } from "lettra/three";
 
-import { curlNormal, curlPaper, wrapAngle } from "../paper-curl";
+import { dented, inkOnCurl } from "../ink-surface";
+import { curlNormal } from "../paper-curl";
 import { paperFibre } from "../paper-fiber";
 import { paperTone } from "../paper-tone";
 import { CHAR_WIDTH } from "../sheet-metrics";
-import type { FloatNode, Vec3Node } from "../tsl-types";
+import type { FloatNode } from "../tsl-types";
 
 export interface InkMaterialOptions {
   /** The MSDF atlas, already configured by lettra. */
@@ -78,39 +71,9 @@ const DENT_DEPTH = 0.9;
  * the page; what shows is only the change in shading. */
 const DENT_PRESENCE = 0.9;
 
-/**
- * A glyph is one flat quad. Bent over the roller it cannot follow the curve,
- * so its middle sags under the finely tessellated page and the depth test
- * eats the stroke — the j loses its stem first, being the tallest. This lifts
- * the ink along the curled normal by about that sag, and only where there is
- * any curve to sag under.
- */
-const CURL_LIFT = 0.0016;
-
 /** Stable pseudo-random in [0, 1) from a glyph's seed. */
 const hash = /*#__PURE__*/ Fn(([n]: [FloatNode]) =>
   fract(sin(n.mul(12.9898)).mul(43758.5453)),
-);
-
-/**
- * Tilts a surface normal by the screen-space slope of a height field — the
- * same construction as three's bump map, but taking the base normal as an
- * input so the dent can sit on the curled page rather than on the flat quad.
- */
-const dented = /*#__PURE__*/ Fn(
-  ([surfaceNormal, height, depth]: [Vec3Node, FloatNode, FloatNode]) => {
-    const sigmaX = dFdx(positionView);
-    const sigmaY = dFdy(positionView);
-    const r1 = cross(sigmaY, surfaceNormal);
-    const r2 = cross(surfaceNormal, sigmaX);
-    const determinant = dot(sigmaX, r1);
-    const gradient = r1
-      .mul(dFdx(height).mul(depth))
-      .add(r2.mul(dFdy(height).mul(depth)))
-      .mul(sign(determinant));
-
-    return normalize(surfaceNormal.mul(abs(determinant)).sub(gradient));
-  },
 );
 
 export const createInkMaterial = ({
@@ -166,11 +129,9 @@ export const createInkMaterial = ({
   const ink = mix(color(INK_WEAK), color(INK_STRONG), density);
   material.colorNode = mix(page.colour, ink, inkAlpha);
   material.opacityNode = max(inkAlpha, rim.mul(DENT_PRESENCE));
-  const curled = curlNormal(onPaper);
-  const lift = smoothstep(0, 0.35, wrapAngle(onPaper)).mul(CURL_LIFT);
-  material.positionNode = curlPaper(onPaper).add(curled.mul(lift));
+  material.positionNode = inkOnCurl(onPaper);
   material.normalNode = dented(
-    transformNormalToView(curled),
+    transformNormalToView(curlNormal(onPaper)),
     floor.negate(),
     DENT_DEPTH,
   );

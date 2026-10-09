@@ -31,6 +31,7 @@ import { createPost } from "./post";
 import { loadRoller } from "./roller";
 import { createBackdrop } from "./backdrop";
 import { createSign } from "./sign";
+import { createLetterhead } from "./letterhead";
 import { createSpring } from "./spring";
 import { trackProgress, type ProgressListener } from "./load-progress";
 import {
@@ -239,6 +240,9 @@ export const createStage = async (
   });
   paper.add(page.group);
 
+  const letterhead = createLetterhead({ scrollY });
+  paper.add(letterhead.mesh);
+
   const snap = prefersReducedMotion();
 
   const hint = createSign({
@@ -383,6 +387,7 @@ export const createStage = async (
     renderer.setAnimationLoop(null);
     post.dispose();
     page.dispose();
+    letterhead.dispose();
     hint.dispose();
     refusal.dispose();
     sheet.geometry.dispose();
