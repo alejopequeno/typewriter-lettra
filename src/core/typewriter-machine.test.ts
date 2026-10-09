@@ -7,6 +7,7 @@ import {
   createState,
   currentLine,
   isPrintable,
+  leadingColumns,
   strike,
   type TypewriterConfig,
 } from "./typewriter-machine";
@@ -97,5 +98,19 @@ describe("immutability", () => {
 
     expect(before.lines).toEqual(["abc"]);
     expect(carriageColumn(before)).toBe(3);
+  });
+});
+
+describe("leadingColumns", () => {
+  it("counts the spaces struck before the first character", () => {
+    expect(leadingColumns("   hello")).toBe(3);
+  });
+
+  it("is zero for a line that starts at the margin", () => {
+    expect(leadingColumns("hello  world")).toBe(0);
+  });
+
+  it("covers the whole line when it is only spaces", () => {
+    expect(leadingColumns("    ")).toBe(4);
   });
 });

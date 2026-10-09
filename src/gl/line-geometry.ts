@@ -10,7 +10,7 @@ import { layout, type LayoutResult, type MSDFFont } from "lettra";
 import { buildTextGeometry } from "lettra/three";
 import type { BufferGeometry } from "three/webgpu";
 
-import type { Line } from "@/core/typewriter-machine";
+import { leadingColumns, type Line } from "@/core/typewriter-machine";
 import {
   CHAR_WIDTH,
   INK_LIFT,
@@ -69,8 +69,9 @@ export const buildLineGeometry = (
     glyphIndexOf: (glyph) => glyph.index,
   });
 
+  // lettra's layout drops leading whitespace; the carriage did not.
   geometry.translate(
-    LEFT_MARGIN - SHEET_WIDTH / 2,
+    LEFT_MARGIN - SHEET_WIDTH / 2 + leadingColumns(line) * CHAR_WIDTH,
     lineBaselineY(lineNumber),
     INK_LIFT,
   );

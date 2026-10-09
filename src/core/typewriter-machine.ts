@@ -77,6 +77,11 @@ export const carriageReturn = (state: TypewriterState): TypewriterState => ({
   lines: [...state.lines, ""],
 });
 
+/** Columns the carriage moved with the space bar before the first character
+ * of a line. Every space is a column, at the start of a line as anywhere. */
+export const leadingColumns = (line: Line): number =>
+  line.length - line.trimStart().length;
+
 /** A `KeyboardEvent.key` that stands for a character rather than a command.
  * Named keys ("Enter", "ArrowLeft") are longer than one code point. */
 export const isPrintable = (key: string): boolean =>
